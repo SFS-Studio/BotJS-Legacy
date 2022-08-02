@@ -1,0 +1,28 @@
+modLoader = "kotlinforforge" #mandatory
+loaderVersion = "[3,)"
+license = "MIT"
+#issueTrackerURL="http://my.issue.tracker/" #optional
+[[mods]]
+modId = "botjs"
+version = "${file.jarVersion}"
+displayName = "BotJS"
+#updateJSONURL="http://myurl.me/" #optional
+#displayURL="http://example.com/" #optional
+#logoFile="botjs.png" #optional
+#credits="Thanks for this example mod goes to KOTLIN" #optional
+authors = "switefaster, Yaossg, InitAuther97" #optional
+description = '''
+Extensible and programmable bots!
+'''
+[[dependencies.botjs]]
+modId = "forge"
+mandatory = true
+versionRange = "[40,)"
+ordering = "NONE"
+side = "BOTH"
+[[dependencies.botjs]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.18.2,1.19)"
+ordering = "NONE"
+side = "BOTH"

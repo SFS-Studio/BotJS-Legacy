@@ -4,7 +4,7 @@ import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.Lock
 import kotlin.concurrent.withLock
 
-class DelegateCondition(val lock: Lock) {
+class DelegateCondition(private val lock: Lock) {
     private val condition: Condition = lock.newCondition()
     private var released = false
     fun await() {

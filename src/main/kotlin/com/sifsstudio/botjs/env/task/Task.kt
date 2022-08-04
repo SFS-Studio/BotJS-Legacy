@@ -4,6 +4,6 @@ import com.sifsstudio.botjs.env.BotEnv
 
 interface Task<T: Any> {
     val future: TaskFuture<T>
-    fun accepts(envIn: BotEnv): Boolean = true
+    fun accepts(env: BotEnv): Boolean = true
     fun tick()
 }

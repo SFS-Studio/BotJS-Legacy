@@ -1,8 +1,9 @@
 package com.sifsstudio.botjs.env.task
 
-interface Task<T> {
-    val done: Boolean
-    val lock: DelegateLock
-    var result: T?
+import com.sifsstudio.botjs.env.BotEnv
+
+interface Task<T: Any> {
+    val future: TaskFuture<T>
+    fun accepts(envIn: BotEnv): Boolean = true
     fun tick()
 }

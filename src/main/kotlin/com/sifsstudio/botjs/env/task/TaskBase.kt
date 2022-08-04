@@ -1,9 +1,16 @@
 package com.sifsstudio.botjs.env.task
 
-import java.util.concurrent.locks.ReentrantLock
+import com.sifsstudio.botjs.env.BotEnv
 
-abstract class TaskBase<T>: Task<T> {
-    override var done = false
-    override val lock = DelegateLock(ReentrantLock())
-    override var result: T? = null
+abstract class TaskBase<T: Any>: Task<T> {
+    override val future: SimpleTaskFuture<T> = SimpleTaskFuture()
+    protected lateinit var envIn: BotEnv
+
+    override fun accepts(envIn: BotEnv) =
+        if(super.accepts(envIn)) {
+            this.envIn = envIn
+            true
+        } else false
+
+    protected fun done(result: T) = future.done(result)
 }

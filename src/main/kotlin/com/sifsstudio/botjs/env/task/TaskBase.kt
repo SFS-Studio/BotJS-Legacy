@@ -4,11 +4,11 @@ import com.sifsstudio.botjs.env.BotEnv
 
 abstract class TaskBase<T: Any>: Task<T> {
     override val future: SimpleTaskFuture<T> = SimpleTaskFuture()
-    protected lateinit var envIn: BotEnv
+    protected lateinit var env: BotEnv
 
-    override fun accepts(envIn: BotEnv) =
-        if(super.accepts(envIn)) {
-            this.envIn = envIn
+    override fun accepts(env: BotEnv) =
+        if(super.accepts(env)) {
+            this.env = env
             true
         } else false
 

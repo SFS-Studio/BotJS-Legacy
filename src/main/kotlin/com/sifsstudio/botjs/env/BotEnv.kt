@@ -13,13 +13,13 @@ import java.util.Collections
 import kotlin.collections.HashSet
 import kotlin.reflect.KClass
 
-class BotEnv(val entityIn: BotEntity): Runnable {
-    val context: Context = Context.enter()!!
-    val tasks: MutableMap<Task<*>, Boolean> = Collections.synchronizedMap(Object2BooleanOpenHashMap())
-    val abilities: MutableSet<Ability> = HashSet()
-    var active = false
+class BotEnv(val entity: BotEntity): Runnable {
+    private val context: Context = Context.enter()!!
+    private val tasks: MutableMap<Task<*>, Boolean> = Collections.synchronizedMap(Object2BooleanOpenHashMap())
+    private val abilities: MutableSet<Ability> = HashSet()
+    private var active = false
     var script: String = ""
-    var available = false
+    private var available = false
 
     init {
         install {TimeKillingAbility(it)}
@@ -33,11 +33,11 @@ class BotEnv(val entityIn: BotEntity): Runnable {
             } else TaskFuture.failedFuture()
         }
 
-    inline fun install(cap: (BotEnv) -> Ability) = abilities.add(cap(this))
+    private inline fun install(cap: (BotEnv) -> Ability) = abilities.add(cap(this))
 
     fun uninstall(cap: KClass<out Ability>) = abilities.removeIf(cap::isInstance)
 
-    fun createRoot() = context.initStandardObjects().apply {
+    private fun createRoot(): ScriptableObject = context.initStandardObjects().apply {
         defineProperty("bot", Bot(abilities), ScriptableObject.CONST)
     }
 

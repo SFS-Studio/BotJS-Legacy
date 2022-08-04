@@ -6,7 +6,7 @@ class SimpleTaskFuture<T: Any>: TaskFuture<T> {
     override var done = false
 
     //TODO: Coroutine implementation
-    val condition = DelegateCondition(ReentrantLock())
+    private val condition = DelegateCondition(ReentrantLock())
 
     override lateinit var result: T
 

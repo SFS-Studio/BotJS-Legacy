@@ -15,9 +15,9 @@ class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, l
     lateinit var environment: BotEnv
         private set
 
-    override fun getArmorSlots(): MutableIterable<ItemStack> = mutableListOf()
+    override fun getArmorSlots() = emptyList<ItemStack>()
 
-    override fun setItemSlot(pSlot: EquipmentSlot, pStack: ItemStack) {}
+    override fun setItemSlot(pSlot: EquipmentSlot, pStack: ItemStack) = Unit
 
     override fun getItemBySlot(pSlot: EquipmentSlot) = ItemStack.EMPTY
 

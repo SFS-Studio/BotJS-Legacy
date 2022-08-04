@@ -45,7 +45,7 @@ class BotEnv(val entityIn: BotEntity): Runnable {
         check(available && !active)
         active = true
         val root = createRoot()
-        context.evaluateString(root, script, "bot_script", TODO(), TODO())
+        context.evaluateString(root, script, "bot_script", 1, null)
     }
 
     fun tick() = synchronized(this) {

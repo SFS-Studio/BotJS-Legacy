@@ -8,16 +8,18 @@ class DelegateCondition(private val lock: Lock) {
     private val condition: Condition = lock.newCondition()
     private var released = false
     fun await() {
-        if(!released) {
+        if (!released) {
             lock.lock()
             condition.await()
         }
     }
 
     fun signal() {
-        if(!released) {
-            lock.withLock { condition.signalAll() }
-            released = true
+        if (!released) {
+            lock.withLock {
+                condition.signalAll()
+                released = true
+            }
         }
     }
 }

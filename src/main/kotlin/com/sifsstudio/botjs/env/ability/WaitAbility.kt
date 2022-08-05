@@ -1,9 +1,8 @@
 package com.sifsstudio.botjs.env.ability
 
-import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.task.TaskBase
 
-class WaitAbility(private val env: BotEnv): Ability {
+class WaitAbility: AbilityBase() {
 
     override val id = "wait"
 

@@ -12,13 +12,14 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
 class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, level) {
 
     companion object {
-        val EXECUTOR = Executors.newCachedThreadPool()
+        val EXECUTOR: ExecutorService = Executors.newCachedThreadPool()
     }
 
     private val environment: BotEnv = BotEnv(this)
@@ -34,7 +35,6 @@ class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, l
     override fun getMainArm(): HumanoidArm = HumanoidArm.RIGHT
 
     override fun addAdditionalSaveData(pCompound: CompoundTag) {
-        super.readAdditionalSaveData(pCompound)
         pCompound.put("upgrades", inventory.createTag())
         pCompound.putString("script", environment.script)
     }

@@ -3,10 +3,11 @@ package com.sifsstudio.botjs.env.ability
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.task.TaskBase
 
-class TimeKillingAbility(private val env: BotEnv): Ability {
+class WaitAbility(private val env: BotEnv): Ability {
 
     override val id = "wait"
 
+    @Suppress("unused")
     fun waitFor(ticks: Int) {
         check(ticks >= 0)
         if(ticks == 0) return

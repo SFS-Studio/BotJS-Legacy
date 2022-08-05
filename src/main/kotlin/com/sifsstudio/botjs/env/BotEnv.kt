@@ -2,19 +2,19 @@ package com.sifsstudio.botjs.env
 
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.ability.Ability
-import com.sifsstudio.botjs.env.ability.TimeKillingAbility
+import com.sifsstudio.botjs.env.ability.SpeakAbility
+import com.sifsstudio.botjs.env.ability.WaitAbility
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.task.Task
 import com.sifsstudio.botjs.env.task.TaskFuture
 import dev.latvian.mods.rhino.Context
 import dev.latvian.mods.rhino.ScriptableObject
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap
-import java.util.Collections
-import kotlin.collections.HashSet
+import org.apache.logging.log4j.LogManager
+import java.util.*
 import kotlin.reflect.KClass
 
 class BotEnv(val entity: BotEntity): Runnable {
-    private val context: Context = Context.enter()!!
     private val tasks: MutableMap<Task<*>, Boolean> = Collections.synchronizedMap(Object2BooleanOpenHashMap())
     private val abilities: MutableSet<Ability> = HashSet()
     private var active = false
@@ -22,7 +22,8 @@ class BotEnv(val entity: BotEntity): Runnable {
     private var available = false
 
     init {
-        install {TimeKillingAbility(it)}
+        install { WaitAbility(it) }
+        install { SpeakAbility() }
     }
 
     fun<T: Task<*>> pending(tsk: T) =
@@ -37,15 +38,19 @@ class BotEnv(val entity: BotEntity): Runnable {
 
     fun uninstall(cap: KClass<out Ability>) = abilities.removeIf(cap::isInstance)
 
-    private fun createRoot(): ScriptableObject = context.initStandardObjects().apply {
-        defineProperty("bot", Bot(abilities), ScriptableObject.CONST)
-    }
-
     override fun run() {
         check(available && !active)
         active = true
-        val root = createRoot()
-        context.evaluateString(root, script, "bot_script", 1, null)
+        val context = Context.enter()
+        val root = context.initStandardObjects().apply {
+            defineProperty("bot", Bot(abilities), ScriptableObject.CONST)
+        }
+        try {
+            context.evaluateString(root, script, "bot_script", 1, null)
+        } catch(exception: Exception) {
+            LOGGER.error(exception)
+        }
+        active = false
     }
 
     fun tick() = synchronized(this) {
@@ -77,5 +82,9 @@ class BotEnv(val entity: BotEntity): Runnable {
 
     fun enable() {
         available = true
+    }
+
+    companion object {
+        private val LOGGER = LogManager.getLogger()
     }
 }

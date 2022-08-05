@@ -1,32 +1,27 @@
-package com.sifsstudio.botjs.env.api;
+package com.sifsstudio.botjs.env.api
 
-import com.sifsstudio.botjs.env.ability.Ability;
+import com.sifsstudio.botjs.env.ability.Ability
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+class Bot(abilities: Set<Ability>) {
+    private val nameToAbility: MutableMap<String, Ability> = HashMap()
+    private val memories: MutableMap<Any, Any> = HashMap()
 
-public class Bot {
-    private final Map<String, Ability> nameToAbility = new HashMap<>();
-
-    private final Map<Object, Object> memories = new HashMap<>();
-
-    public Bot(Set<Ability> abilities) {
-        abilities.forEach(it -> nameToAbility.put(it.getId(), it));
+    init {
+        abilities.forEach { nameToAbility[it.id] = it }
     }
 
-    @SuppressWarnings("unused")
-    public Ability getAbility(String id) {
-        return nameToAbility.get(id);
+    @Suppress("unused")
+    fun getAbility(id: String): Ability? {
+        return nameToAbility[id]
     }
 
-    @SuppressWarnings("unused")
-    public Object getMemory(Object memId) {
-        return memories.get(memId);
+    @Suppress("unused")
+    fun getMemory(memId: Any): Any? {
+        return memories[memId]
     }
 
-    @SuppressWarnings("unused")
-    public void setMemory(Object memId, Object mem) {
-        memories.put(memId, mem);
+    @Suppress("unused")
+    fun setMemory(memId: Any, mem: Any) {
+        memories[memId] = mem
     }
 }

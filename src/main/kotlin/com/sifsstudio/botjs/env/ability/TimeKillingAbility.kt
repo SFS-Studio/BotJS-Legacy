@@ -5,7 +5,7 @@ import com.sifsstudio.botjs.env.task.TaskBase
 
 class TimeKillingAbility(private val env: BotEnv): Ability {
 
-    override val id = "basic"
+    override val id = "wait"
 
     fun waitFor(ticks: Int) {
         check(ticks >= 0)

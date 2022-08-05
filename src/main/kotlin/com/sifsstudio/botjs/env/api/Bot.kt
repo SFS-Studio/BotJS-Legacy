@@ -6,13 +6,7 @@ import kotlin.collections.HashMap
 
 class Bot(abilities: Set<Ability>) {
     private val memories: MutableMap<Any, Any> = HashMap()
-    val abilities: Map<String, Ability>
-
-    init {
-        val cached: MutableMap<String, Ability> = HashMap()
-        abilities.associateByTo(cached) {it.id}
-        this.abilities = Collections.unmodifiableMap(cached)
-    }
+    val abilities: Map<String, Ability> = Collections.unmodifiableMap(abilities.associateBy { it.id })
 
     @Suppress("unused")
     fun getMemory(memId: Any): Any? {

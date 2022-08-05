@@ -1,6 +1,7 @@
 package com.sifsstudio.botjs
 
 import com.sifsstudio.botjs.entity.Entities
+import com.sifsstudio.botjs.item.Items
 import net.minecraftforge.fml.common.Mod
 import thedarkcolour.kotlinforforge.forge.MOD_BUS
 
@@ -10,5 +11,6 @@ object BotJS {
 
     init {
         Entities.REGISTRY.register(MOD_BUS)
+        Items.REGISTRY.register(MOD_BUS)
     }
 }

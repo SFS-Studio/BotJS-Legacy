@@ -24,7 +24,7 @@ class BotEnv(val entity: BotEntity): Runnable {
         install(SpeakAbility())
     }
 
-    fun<T: Task<*>> pending(tsk: T) =
+    fun<T: Task<R>, R : Any> pending(tsk: T) =
         synchronized(this) {
             if(available && active) {
                 tasks[tsk] = false
@@ -43,6 +43,7 @@ class BotEnv(val entity: BotEntity): Runnable {
         val root = context.initStandardObjects().apply {
             defineProperty("bot", Bot(abilities), ScriptableObject.CONST)
         }
+        Context.exit()
         try {
             context.evaluateString(root, script, "bot_script", 1, null)
         } catch(exception: Exception) {

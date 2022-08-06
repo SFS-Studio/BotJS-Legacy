@@ -2,7 +2,7 @@ package com.sifsstudio.botjs.env.ability
 
 import org.apache.logging.log4j.LogManager
 
-class SpeakAbility: Ability {
+class SpeakAbility: AbilityBase() {
     override val id = "speak"
 
     @Suppress("unused")

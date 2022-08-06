@@ -1,19 +1,12 @@
 package com.sifsstudio.botjs.env.api
 
 import com.sifsstudio.botjs.env.ability.Ability
+import java.util.*
+import kotlin.collections.HashMap
 
 class Bot(abilities: Set<Ability>) {
-    private val nameToAbility: MutableMap<String, Ability> = HashMap()
     private val memories: MutableMap<Any, Any> = HashMap()
-
-    init {
-        abilities.forEach { nameToAbility[it.id] = it }
-    }
-
-    @Suppress("unused")
-    fun getAbility(id: String): Ability? {
-        return nameToAbility[id]
-    }
+    val abilities: Map<String, Ability> = Collections.unmodifiableMap(abilities.associateBy { it.id })
 
     @Suppress("unused")
     fun getMemory(memId: Any): Any? {

@@ -4,6 +4,7 @@ import com.sifsstudio.botjs.client.gui.screen.inventory.BotScreen
 import com.sifsstudio.botjs.entity.Entities
 import com.sifsstudio.botjs.inventory.MenuTypes
 import net.minecraft.client.gui.screens.MenuScreens
+import com.sifsstudio.botjs.item.Items
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import thedarkcolour.kotlinforforge.forge.MOD_BUS
@@ -14,11 +15,13 @@ object BotJS {
 
     init {
         Entities.REGISTRY.register(MOD_BUS)
+        Items.REGISTRY.register(MOD_BUS)
         MenuTypes.REGISTRY.register(MOD_BUS)
         MOD_BUS.addListener(this::setupClient)
     }
 
     private fun setupClient(event: FMLClientSetupEvent) = event.enqueueWork {
         MenuScreens.register(MenuTypes.BOT_MENU, ::BotScreen)
+        Items.REGISTRY.register(MOD_BUS)
     }
 }

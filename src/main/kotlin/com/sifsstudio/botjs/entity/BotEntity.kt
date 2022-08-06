@@ -40,13 +40,13 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
     override fun getMainArm(): HumanoidArm = HumanoidArm.RIGHT
 
     override fun addAdditionalSaveData(pCompound: CompoundTag) {
-        super.readAdditionalSaveData(pCompound)
+        super.addAdditionalSaveData(pCompound)
         pCompound.put("upgrades", inventory.createTag())
         pCompound.putString("script", environment.script)
     }
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
-        super.addAdditionalSaveData(pCompound)
+        super.readAdditionalSaveData(pCompound)
         inventory.fromTag(pCompound.getList("upgrades", NbtType.COMPOUND))
         environment.script = pCompound.getString("script")
     }

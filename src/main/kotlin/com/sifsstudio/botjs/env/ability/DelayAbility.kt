@@ -1,17 +1,25 @@
 package com.sifsstudio.botjs.env.ability
 
 import com.sifsstudio.botjs.env.task.TaskBase
+import com.sifsstudio.botjs.env.task.TaskFuture
 
-class WaitAbility: AbilityBase() {
+class DelayAbility: AbilityBase() {
 
-    override val id = "wait"
+    override val id = "delay"
 
     @Suppress("unused")
-    fun waitFor(ticks: Int) {
+    fun delay(ticks: Int) {
         check(ticks >= 0)
         if(ticks == 0) return
         env.pending(WaitTask(ticks))
             .join()
+    }
+
+    @Suppress("unused")
+    fun delayAsync(ticks: Int): TaskFuture<Unit> {
+        check(ticks >= 0)
+        if(ticks == 0) return TaskFuture.successFuture(Unit)
+        else return TaskFuture.successUnitFuture
     }
 
     companion object {

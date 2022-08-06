@@ -3,7 +3,6 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.ability.Ability
 import com.sifsstudio.botjs.env.ability.SpeakAbility
-import com.sifsstudio.botjs.env.ability.WaitAbility
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.task.Task
 import com.sifsstudio.botjs.env.task.TaskFuture
@@ -22,8 +21,7 @@ class BotEnv(val entity: BotEntity): Runnable {
     private var available = false
 
     init {
-        install { WaitAbility(it) }
-        install { SpeakAbility() }
+        install(SpeakAbility())
     }
 
     fun<T: Task<*>> pending(tsk: T) =
@@ -34,7 +32,7 @@ class BotEnv(val entity: BotEntity): Runnable {
             } else TaskFuture.failedFuture()
         }
 
-    private inline fun install(cap: (BotEnv) -> Ability) = abilities.add(cap(this))
+    fun install(cap: Ability) = abilities.add(cap.apply { bind(this@BotEnv) })
 
     fun uninstall(cap: KClass<out Ability>) = abilities.removeIf(cap::isInstance)
 

@@ -22,6 +22,5 @@ object BotJS {
 
     private fun setupClient(event: FMLClientSetupEvent) = event.enqueueWork {
         MenuScreens.register(MenuTypes.BOT_MENU, ::BotScreen)
-        Items.REGISTRY.register(MOD_BUS)
     }
 }

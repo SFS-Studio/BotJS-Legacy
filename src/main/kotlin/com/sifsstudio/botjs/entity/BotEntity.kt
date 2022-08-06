@@ -1,10 +1,15 @@
 package com.sifsstudio.botjs.entity
 
+import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.inventory.BotMenu
+import dev.latvian.mods.rhino.mod.util.NbtType
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.TranslatableComponent
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.SimpleMenuProvider
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.HumanoidArm
@@ -16,7 +21,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
-class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, level) {
+class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, level) {
 
     companion object {
         val EXECUTOR: ExecutorService = Executors.newCachedThreadPool()
@@ -42,7 +47,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, l
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
         super.addAdditionalSaveData(pCompound)
-        inventory.fromTag(pCompound.getList("upgrades", 0))
+        inventory.fromTag(pCompound.getList("upgrades", NbtType.COMPOUND))
         environment.script = pCompound.getString("script")
     }
 
@@ -62,8 +67,16 @@ class BotEntity(type: EntityType<BotEntity>, level: Level): LivingEntity(type, l
     }
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if (!this.level.isClientSide && ((this::currentRunFuture.isInitialized && this.currentRunFuture.isDone) || !this::currentRunFuture.isInitialized)) {
-            currentRunFuture = EXECUTOR.submit(environment)
+        if ((this::currentRunFuture.isInitialized && this.currentRunFuture.isDone) || !this::currentRunFuture.isInitialized) {
+            if (!this.level.isClientSide) {
+                pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
+                    BotMenu(
+                        containerId,
+                        playerInventory,
+                        inventory
+                    )
+                }, TranslatableComponent("${BotJS.ID}.menu.bot_title")))
+            }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         }
         return super.interact(pPlayer, pHand)

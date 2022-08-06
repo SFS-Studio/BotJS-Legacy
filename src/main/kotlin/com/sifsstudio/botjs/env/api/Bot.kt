@@ -6,6 +6,7 @@ import kotlin.collections.HashMap
 
 class Bot(abilities: Set<Ability>) {
     private val memories: MutableMap<Any, Any> = HashMap()
+    @Suppress("unused")
     val abilities: Map<String, Ability> = Collections.unmodifiableMap(abilities.associateBy { it.id })
 
     @Suppress("unused")

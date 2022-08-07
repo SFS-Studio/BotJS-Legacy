@@ -6,8 +6,9 @@ import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.ItemStack
 
-class BotMenu(pContainerId: Int, pPlayerInventory: Inventory, private val pContainer: Container): AbstractContainerMenu(MenuTypes.BOT_MENU, pContainerId) {
+class BotMountMenu(pContainerId: Int, pPlayerInventory: Inventory, private val pContainer: Container): AbstractContainerMenu(MenuTypes.BOT_MENU, pContainerId) {
 
     init {
         pContainer.startOpen(pPlayerInventory.player)
@@ -30,6 +31,10 @@ class BotMenu(pContainerId: Int, pPlayerInventory: Inventory, private val pConta
     override fun removed(pPlayer: Player) {
         super.removed(pPlayer)
         pContainer.stopOpen(pPlayer)
+    }
+
+    override fun quickMoveStack(pPlayer: Player, pIndex: Int): ItemStack {
+        return ItemStack.EMPTY
     }
 
     override fun stillValid(pPlayer: Player): Boolean = pContainer.stillValid(pPlayer)

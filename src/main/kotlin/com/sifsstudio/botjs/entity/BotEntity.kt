@@ -2,7 +2,8 @@ package com.sifsstudio.botjs.entity
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.inventory.BotMenu
+import com.sifsstudio.botjs.inventory.BotMountMenu
+import com.sifsstudio.botjs.item.Items
 import dev.latvian.mods.rhino.mod.util.NbtType
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.TranslatableComponent
@@ -27,7 +28,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
         val EXECUTOR: ExecutorService = Executors.newCachedThreadPool()
     }
 
-    private val environment: BotEnv = BotEnv(this)
+    val environment: BotEnv = BotEnv(this)
     private val inventory: SimpleContainer = SimpleContainer(9)
     private lateinit var currentRunFuture: Future<*>
 
@@ -68,16 +69,24 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
         if ((this::currentRunFuture.isInitialized && this.currentRunFuture.isDone) || !this::currentRunFuture.isInitialized) {
-            if (!this.level.isClientSide) {
-                pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
-                    BotMenu(
-                        containerId,
-                        playerInventory,
-                        inventory
-                    )
-                }, TranslatableComponent("${BotJS.ID}.menu.bot_title")))
+            if (pPlayer.getItemInHand(pHand).`is`(Items.MOUNTER)) {
+                if (!this.level.isClientSide) {
+                    pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
+                        BotMountMenu(
+                            containerId,
+                            playerInventory,
+                            inventory
+                        )
+                    }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
+                }
+                return InteractionResult.sidedSuccess(this.level.isClientSide)
+            } else if (pPlayer.getItemInHand(pHand).`is`(Items.PROGRAMMER)) {
+                if (!this.level.isClientSide) {
+                    // TODO: send packet
+                    TODO()
+                }
+                return InteractionResult.sidedSuccess(this.level.isClientSide)
             }
-            return InteractionResult.sidedSuccess(this.level.isClientSide)
         }
         return super.interact(pPlayer, pHand)
     }

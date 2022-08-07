@@ -33,15 +33,21 @@ class MovementAbility : AbilityBase() {
     companion object {
 
         const val moveSpeed = 0.1
+        const val moveSpeedSq = moveSpeed * moveSpeed
         val successResult = MoveResult(true)
 
         class MovementTask(private val endX: Double, private val endZ: Double): TaskBase<MoveResult>() {
             override fun tick() {
                 val normal = Vec3(endX - env.entity.x, 0.0, endZ - env.entity.z).normalize()
-                val distance = env.entity.distanceToSqr(endX, env.entity.y, endZ)
-                val movement = distance.coerceAtMost(moveSpeed)
-                env.entity.move(MoverType.SELF, normal.scale(movement))
-                if(distance - movement < 1E-7) {
+                val distanceSq = env.entity.distanceToSqr(endX, env.entity.y, endZ)
+                val movementSq = if (distanceSq >= moveSpeedSq) {
+                    env.entity.move(MoverType.SELF, normal.scale(moveSpeed))
+                    moveSpeedSq
+                } else {
+                    env.entity.move(MoverType.SELF, normal.scale(kotlin.math.sqrt(distanceSq)))
+                    distanceSq
+                }
+                if(distanceSq - movementSq < 1E-14) {
                     done(successResult)
                 }
             }

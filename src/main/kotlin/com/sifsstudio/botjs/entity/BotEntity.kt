@@ -4,6 +4,7 @@ import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
+import com.sifsstudio.botjs.util.isItem
 import dev.latvian.mods.rhino.mod.util.NbtType
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.TranslatableComponent
@@ -69,7 +70,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
         if ((this::currentRunFuture.isInitialized && this.currentRunFuture.isDone) || !this::currentRunFuture.isInitialized) {
-            if (pPlayer.getItemInHand(pHand).`is`(Items.MOUNTER)) {
+            if (pPlayer.getItemInHand(pHand) isItem Items.MOUNTER) {
                 if (!this.level.isClientSide) {
                     pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
                         BotMountMenu(
@@ -80,7 +81,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                     }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
                 }
                 return InteractionResult.sidedSuccess(this.level.isClientSide)
-            } else if (pPlayer.getItemInHand(pHand).`is`(Items.PROGRAMMER)) {
+            } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER) {
                 if (!this.level.isClientSide) {
                     // TODO: send packet
                     TODO()

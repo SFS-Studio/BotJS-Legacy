@@ -12,7 +12,7 @@ object Items {
     val REGISTRY: DeferredRegister<Item> = DeferredRegister.create(ForgeRegistries.ITEMS, BotJS.ID)
 
     val INTERRUPT_UPGRADE: Item
-        by REGISTRY.registerObject("interrupt_upgrade") { UpgradeItem.withAbility(DelayAbility()) }
+        by REGISTRY.registerObject("interrupt_upgrade") { UpgradeItem.withAbility { DelayAbility() }}
     val MOVEMENT_UPGRADE: Item
-        by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility(MovementAbility()) }
+        by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
 }

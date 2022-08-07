@@ -18,8 +18,8 @@ class DelayAbility: AbilityBase() {
     @Suppress("unused")
     fun delayAsync(ticks: Int): TaskFuture<Unit> {
         check(ticks >= 0)
-        if(ticks == 0) return TaskFuture.successFuture(Unit)
-        else return TaskFuture.successUnitFuture
+        return if(ticks == 0) TaskFuture.successFuture(Unit)
+        else TaskFuture.successUnitFuture
     }
 
     companion object {

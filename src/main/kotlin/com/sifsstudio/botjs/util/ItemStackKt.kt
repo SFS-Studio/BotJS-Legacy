@@ -1,4 +1,3 @@
-@file:Suppress("NOTHING_TO_INLINE")
 package com.sifsstudio.botjs.util
 
 import net.minecraft.tags.TagKey

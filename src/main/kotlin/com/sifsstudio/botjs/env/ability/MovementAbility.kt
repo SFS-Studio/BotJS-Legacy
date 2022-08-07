@@ -40,7 +40,7 @@ class MovementAbility : AbilityBase() {
                 val normal = Vec3(endX - env.entity.x, 0.0, endZ - env.entity.z).normalize()
                 val distance = env.entity.distanceToSqr(endX, env.entity.y, endZ)
                 val movement = distance.coerceAtMost(moveSpeed)
-                env.entity.move(MoverType.SELF, normal.scale(movement))
+                env.entity.deltaMovement = normal.scale(movement)
                 if(distance - movement < 1E-7) {
                     done(successResult)
                 }
@@ -51,7 +51,7 @@ class MovementAbility : AbilityBase() {
             private val normal = Vec3(direction.stepX.toDouble(), direction.stepY.toDouble(), direction.stepZ.toDouble())
             override fun tick() {
                 val movement = distance.coerceAtMost(moveSpeed)
-                env.entity.move(MoverType.SELF, normal.scale(movement))
+                env.entity.deltaMovement = normal.scale(movement)
                 distance -= movement
                 if(distance < 1E-7) {
                     done(successResult)

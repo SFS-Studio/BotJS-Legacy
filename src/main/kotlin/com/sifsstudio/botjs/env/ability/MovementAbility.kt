@@ -3,7 +3,6 @@ package com.sifsstudio.botjs.env.ability
 import com.sifsstudio.botjs.env.task.TaskBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 import net.minecraft.core.Direction
-import net.minecraft.world.entity.MoverType
 import net.minecraft.world.phys.Vec3
 
 class MovementAbility : AbilityBase() {

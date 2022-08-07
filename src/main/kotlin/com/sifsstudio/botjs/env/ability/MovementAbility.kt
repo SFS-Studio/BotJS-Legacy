@@ -37,7 +37,7 @@ class MovementAbility : AbilityBase() {
 
         class MovementTask(private val endX: Double, private val endZ: Double): TaskBase<MoveResult>() {
             override fun tick() {
-                val normal = Vec3(endX - env.entity.x, env.entity.y, endZ - env.entity.z)
+                val normal = Vec3(endX - env.entity.x, 0.0, endZ - env.entity.z).normalize()
                 val distance = env.entity.distanceToSqr(endX, env.entity.y, endZ)
                 val movement = distance.coerceAtMost(moveSpeed)
                 env.entity.move(MoverType.SELF, normal.scale(movement))

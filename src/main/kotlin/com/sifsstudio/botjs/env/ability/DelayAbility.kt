@@ -23,7 +23,7 @@ class DelayAbility: AbilityBase() {
     }
 
     companion object {
-        class WaitTask(var ticks: Int) : TaskBase<Unit>() {
+        class WaitTask(private var ticks: Int) : TaskBase<Unit>() {
             override fun tick() {
                 if(ticks-- == 0) {
                     done(Unit)

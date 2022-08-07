@@ -3,6 +3,7 @@ package com.sifsstudio.botjs.item
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.ability.DelayAbility
 import com.sifsstudio.botjs.env.ability.MovementAbility
+import com.sifsstudio.botjs.env.ability.SpeakAbility
 import net.minecraft.world.item.Item
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.ForgeRegistries
@@ -16,6 +17,9 @@ object Items {
 
     val MOVEMENT_UPGRADE: Item
             by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
+
+    val OUTPUT_UPGRADE: Item
+            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { SpeakAbility() }}
 
     val MOUNTER: Item
             by REGISTRY.registerObject("mounter") {

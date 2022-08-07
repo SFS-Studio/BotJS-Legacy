@@ -93,8 +93,9 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                     )
                 }
                 return InteractionResult.sidedSuccess(this.level.isClientSide)
-            } else if (pPlayer.getItemInHand(pHand).`is`(Items.SWITCH)) {
+            } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
                 if (!this.level.isClientSide) {
+                    environment.recollectAbilities(inventory)
                     currentRunFuture = EXECUTOR.submit(environment)
                 }
             }

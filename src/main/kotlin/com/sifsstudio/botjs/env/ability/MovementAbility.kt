@@ -3,7 +3,6 @@ package com.sifsstudio.botjs.env.ability
 import com.sifsstudio.botjs.env.task.TaskBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 import net.minecraft.core.Direction
-import net.minecraft.world.entity.MoverType
 import net.minecraft.world.phys.Vec3
 
 class MovementAbility : AbilityBase() {
@@ -41,10 +40,10 @@ class MovementAbility : AbilityBase() {
                 val normal = Vec3(endX - env.entity.x, 0.0, endZ - env.entity.z).normalize()
                 val distanceSq = env.entity.distanceToSqr(endX, env.entity.y, endZ)
                 val movementSq = if (distanceSq >= moveSpeedSq) {
-                    env.entity.move(MoverType.SELF, normal.scale(moveSpeed))
+                    env.entity.deltaMovement = normal.scale(moveSpeed)
                     moveSpeedSq
                 } else {
-                    env.entity.move(MoverType.SELF, normal.scale(kotlin.math.sqrt(distanceSq)))
+                    env.entity.deltaMovement = normal.scale(kotlin.math.sqrt(distanceSq))
                     distanceSq
                 }
                 if(distanceSq - movementSq < 1E-14) {
@@ -57,7 +56,7 @@ class MovementAbility : AbilityBase() {
             private val normal = Vec3(direction.stepX.toDouble(), direction.stepY.toDouble(), direction.stepZ.toDouble())
             override fun tick() {
                 val movement = distance.coerceAtMost(moveSpeed)
-                env.entity.move(MoverType.SELF, normal.scale(movement))
+                env.entity.deltaMovement = normal.scale(movement)
                 distance -= movement
                 if(distance < 1E-7) {
                     done(successResult)

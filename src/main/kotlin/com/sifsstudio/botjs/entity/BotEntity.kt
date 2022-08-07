@@ -89,7 +89,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                 if (!this.level.isClientSide) {
                     NetworkManager.INSTANCE.send(
                         PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
-                        ClientboundOpenProgrammerScreenPacket(this.id)
+                        ClientboundOpenProgrammerScreenPacket(this.id, environment.script)
                     )
                 }
                 return InteractionResult.sidedSuccess(this.level.isClientSide)

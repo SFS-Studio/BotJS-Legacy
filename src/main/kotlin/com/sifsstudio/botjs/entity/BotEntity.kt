@@ -4,9 +4,12 @@ import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
+import com.sifsstudio.botjs.network.ClientboundOpenProgrammerScreenPacket
+import com.sifsstudio.botjs.network.NetworkManager
 import dev.latvian.mods.rhino.mod.util.NbtType
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.TranslatableComponent
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.SimpleContainer
@@ -18,6 +21,7 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraftforge.network.PacketDistributor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -82,10 +86,16 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                 return InteractionResult.sidedSuccess(this.level.isClientSide)
             } else if (pPlayer.getItemInHand(pHand).`is`(Items.PROGRAMMER)) {
                 if (!this.level.isClientSide) {
-                    // TODO: send packet
-                    TODO()
+                    NetworkManager.INSTANCE.send(
+                        PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
+                        ClientboundOpenProgrammerScreenPacket(this.id)
+                    )
                 }
                 return InteractionResult.sidedSuccess(this.level.isClientSide)
+            } else if (pPlayer.getItemInHand(pHand).`is`(Items.SWITCH)) {
+                if (!this.level.isClientSide) {
+                    currentRunFuture = EXECUTOR.submit(environment)
+                }
             }
         }
         return super.interact(pPlayer, pHand)

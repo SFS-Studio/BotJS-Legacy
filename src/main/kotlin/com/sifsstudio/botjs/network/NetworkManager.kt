@@ -21,7 +21,8 @@ object NetworkManager {
     )
 
     fun registerPackets() {
-        registerPacket(ScriptChangedPacket::class, ScriptChangedPacket.Companion::encode, ScriptChangedPacket.Companion::decode, ScriptChangedPacket.Companion::handle)
+        registerPacket(ServerboundScriptChangedPacket::class, ServerboundScriptChangedPacket.Companion::encode, ServerboundScriptChangedPacket.Companion::decode, ServerboundScriptChangedPacket.Companion::handle)
+        registerPacket(ClientboundOpenProgrammerScreenPacket::class, ClientboundOpenProgrammerScreenPacket.Companion::encode, ClientboundOpenProgrammerScreenPacket.Companion::decode, ClientboundOpenProgrammerScreenPacket.Companion::handle)
     }
 
     private fun <MSG : Any> registerPacket(clazz: KClass<MSG>, encoder: (MSG, FriendlyByteBuf) -> Unit, decoder: (FriendlyByteBuf) -> MSG, handler: (MSG, Supplier<NetworkEvent.Context>) -> Unit) {

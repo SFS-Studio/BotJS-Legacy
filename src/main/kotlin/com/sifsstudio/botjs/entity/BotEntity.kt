@@ -73,8 +73,8 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
     }
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if ((this::currentRunFuture.isInitialized && this.currentRunFuture.isDone) || !this::currentRunFuture.isInitialized) {
-            if (pPlayer.getItemInHand(pHand) isItem Items.MOUNTER) {
+        if (!this::currentRunFuture.isInitialized || this.currentRunFuture.isDone) {
+            if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH) {
                 if (!this.level.isClientSide) {
                     pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
                         BotMountMenu(

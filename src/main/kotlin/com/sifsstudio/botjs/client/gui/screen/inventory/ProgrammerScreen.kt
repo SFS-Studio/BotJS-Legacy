@@ -427,7 +427,7 @@ class ProgrammerScreen(private val entityId: Int, private var script: String) :
         RenderSystem.setShaderColor(255.0F, 255.0F, 255.0F, 255.0F)
         RenderSystem.disableTexture()
         RenderSystem.enableColorLogicOp()
-        RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE)
+        RenderSystem.logicOp(GlStateManager.LogicOp.AND_REVERSE)
         bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION)
         for (rect2i in pSelection) {
             val i = rect2i.x

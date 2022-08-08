@@ -1,8 +1,8 @@
 {
   "botjs.menu.bot_mount_title": "Mount",
-  "botjs.menu.programmer.message": "Your code here...",
   "botjs.menu.programmer.title": "Programmer",
   "entity.botjs.bot": "Bot",
+  "item.botjs.output_upgrade": "Output Upgrade",
   "item.botjs.programmer": "Programmer",
   "item.botjs.switch": "Switch",
   "item.botjs.wrench": "Wrench"

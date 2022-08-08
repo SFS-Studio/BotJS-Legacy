@@ -7,5 +7,6 @@
   "item.botjs.programmer": "Programmer",
   "item.botjs.switch": "Switch",
   "item.botjs.timing_upgrade": "Timing Upgrade",
-  "item.botjs.wrench": "Wrench"
+  "item.botjs.wrench": "Wrench",
+  "itemGroup.botjs": "BotJS"
 }

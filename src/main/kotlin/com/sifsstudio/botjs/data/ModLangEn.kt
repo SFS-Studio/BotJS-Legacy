@@ -15,7 +15,8 @@ class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID
 
         val entries = mapOf(
             "botjs.menu.programmer.title" to "Programmer",
-            "botjs.menu.bot_mount_title" to "Mount"
+            "botjs.menu.bot_mount_title" to "Mount",
+            "itemGroup.botjs" to "BotJS"
         )
 
 

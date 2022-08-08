@@ -1,5 +1,7 @@
-e533ad8ae3268f8c8ceaae7bf8dc2e1198e6da08 assets/botjs/lang/en_us.json
+134a443d6caac429b508a06b82186329050dc8da assets/botjs/lang/en_us.json
+0cc514de12a1636e5354bbee23ecbae32cd9b776 assets/botjs/models/item/movement_upgrade.json
 349295741305de8db4121c88d962c5c87e941e3a assets/botjs/models/item/output_upgrade.json
 3e108c1dcd582e97a3434877fae979794fb4c5b4 assets/botjs/models/item/programmer.json
 cf974902f8e442ac6965643e419c9757e1a5c70b assets/botjs/models/item/switch.json
+0145f1065de9a7e3d780ec1859b77b51a6ebbc07 assets/botjs/models/item/timing_upgrade.json
 4aa4a25c2aa7f9c6ee3a5178cac7ed720646b5bc assets/botjs/models/item/wrench.json

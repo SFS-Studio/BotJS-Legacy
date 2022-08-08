@@ -3,9 +3,9 @@ package com.sifsstudio.botjs.env.ability
 import com.sifsstudio.botjs.env.task.TaskBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 
-class DelayAbility: AbilityBase() {
+class TimingAbility: AbilityBase() {
 
-    override val id = "delay"
+    override val id = "timing"
 
     @Suppress("unused")
     fun delay(ticks: Int) {

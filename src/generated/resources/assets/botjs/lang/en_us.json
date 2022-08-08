@@ -2,8 +2,10 @@
   "botjs.menu.bot_mount_title": "Mount",
   "botjs.menu.programmer.title": "Programmer",
   "entity.botjs.bot": "Bot",
+  "item.botjs.movement_upgrade": "Movement Upgrade",
   "item.botjs.output_upgrade": "Output Upgrade",
   "item.botjs.programmer": "Programmer",
   "item.botjs.switch": "Switch",
+  "item.botjs.timing_upgrade": "Timing Upgrade",
   "item.botjs.wrench": "Wrench"
 }

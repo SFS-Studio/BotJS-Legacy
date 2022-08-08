@@ -1,7 +1,9 @@
 package com.sifsstudio.botjs.item
 
 import com.sifsstudio.botjs.BotJS
-import com.sifsstudio.botjs.env.ability.SpeakAbility
+import com.sifsstudio.botjs.env.ability.TimingAbility
+import com.sifsstudio.botjs.env.ability.MovementAbility
+import com.sifsstudio.botjs.env.ability.OutputAbility
 import net.minecraft.world.item.Item
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.ForgeRegistries
@@ -10,14 +12,14 @@ import thedarkcolour.kotlinforforge.forge.registerObject
 object Items {
     val REGISTRY: DeferredRegister<Item> = DeferredRegister.create(ForgeRegistries.ITEMS, BotJS.ID)
 
-//    val INTERRUPT_UPGRADE: Item
-//            by REGISTRY.registerObject("interrupt_upgrade") { UpgradeItem.withAbility { DelayAbility() }}
-//
-//    val MOVEMENT_UPGRADE: Item
-//            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
-//
+    val TIMING_UPGRADE: Item
+            by REGISTRY.registerObject("timing_upgrade") { UpgradeItem.withAbility { TimingAbility() }}
+
+    val MOVEMENT_UPGRADE: Item
+            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
+
     val OUTPUT_UPGRADE: Item
-            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { SpeakAbility() }}
+            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { OutputAbility() }}
 
     val WRENCH: Item
             by REGISTRY.registerObject("wrench") {

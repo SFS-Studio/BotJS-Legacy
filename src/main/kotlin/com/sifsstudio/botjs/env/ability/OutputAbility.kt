@@ -6,8 +6,8 @@ import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.TextComponent
 import org.apache.logging.log4j.LogManager
 
-class SpeakAbility: AbilityBase() {
-    override val id = "speak"
+class OutputAbility: AbilityBase() {
+    override val id = "output"
 
     @Suppress("unused")
     fun speak(content: String) = env.pending(SpeakTask(content)).join()

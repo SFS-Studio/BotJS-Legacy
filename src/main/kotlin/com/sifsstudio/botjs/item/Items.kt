@@ -12,17 +12,17 @@ import thedarkcolour.kotlinforforge.forge.registerObject
 object Items {
     val REGISTRY: DeferredRegister<Item> = DeferredRegister.create(ForgeRegistries.ITEMS, BotJS.ID)
 
-    val INTERRUPT_UPGRADE: Item
-            by REGISTRY.registerObject("interrupt_upgrade") { UpgradeItem.withAbility { DelayAbility() }}
+//    val INTERRUPT_UPGRADE: Item
+//            by REGISTRY.registerObject("interrupt_upgrade") { UpgradeItem.withAbility { DelayAbility() }}
+//
+//    val MOVEMENT_UPGRADE: Item
+//            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
+//
+//    val OUTPUT_UPGRADE: Item
+//            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { SpeakAbility() }}
 
-    val MOVEMENT_UPGRADE: Item
-            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
-
-    val OUTPUT_UPGRADE: Item
-            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { SpeakAbility() }}
-
-    val MOUNTER: Item
-            by REGISTRY.registerObject("mounter") {
+    val WRENCH: Item
+            by REGISTRY.registerObject("wrench") {
                 Item(Item.Properties().stacksTo(1))
             }
 

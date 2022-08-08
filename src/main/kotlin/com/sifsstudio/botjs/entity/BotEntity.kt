@@ -98,6 +98,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                     environment.recollectAbilities(inventory)
                     currentRunFuture = EXECUTOR.submit(environment)
                 }
+                return InteractionResult.sidedSuccess(this.level.isClientSide)
             }
         }
         return super.interact(pPlayer, pHand)

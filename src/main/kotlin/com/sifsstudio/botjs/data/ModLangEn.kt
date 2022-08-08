@@ -15,7 +15,6 @@ class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID
 
         val entries = mapOf(
             "botjs.menu.programmer.title" to "Programmer",
-            "botjs.menu.programmer.message" to "Your code here...",
             "botjs.menu.bot_mount_title" to "Mount"
         )
 
@@ -34,7 +33,7 @@ class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID
         Entities.REGISTRY.entries.forEach {
             val entity = it.get()
             val name = entity.English
-            addEntityType({ entity }, name);
+            addEntityType({ entity }, name)
         }
         entries.forEach { (key, value)->
             add(key, value)

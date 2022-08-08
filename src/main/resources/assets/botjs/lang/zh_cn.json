@@ -1,8 +1,8 @@
 {
   "botjs.menu.bot_mount_title": "挂载",
-  "botjs.menu.programmer.message": "在此处键入代码...",
   "botjs.menu.programmer.title": "编程器",
   "entity.botjs.bot": "Bot",
+  "item.botjs.output_upgrade": "输出升级",
   "item.botjs.programmer": "编程器",
   "item.botjs.switch": "开关",
   "item.botjs.wrench": "扳手"

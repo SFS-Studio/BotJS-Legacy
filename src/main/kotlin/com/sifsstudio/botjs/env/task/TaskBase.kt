@@ -13,4 +13,6 @@ abstract class TaskBase<T: Any>: Task<T> {
         } else false
 
     protected fun done(result: T) = future.done(result)
+
+    override fun discard(reason: Throwable) = future.fail(reason)
 }

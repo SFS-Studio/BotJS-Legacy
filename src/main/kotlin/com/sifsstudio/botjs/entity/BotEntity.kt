@@ -2,6 +2,7 @@ package com.sifsstudio.botjs.entity
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.task.BotDead
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
 import com.sifsstudio.botjs.network.ClientboundOpenProgrammerScreenPacket
@@ -23,15 +24,9 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.network.PacketDistributor
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
 class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, level) {
-
-    companion object {
-        val EXECUTOR: ExecutorService = Executors.newCachedThreadPool()
-    }
 
     val environment: BotEnv = BotEnv(this)
     private val inventory: SimpleContainer = SimpleContainer(9)
@@ -53,13 +48,14 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
         super.readAdditionalSaveData(pCompound)
+        inventory.removeAllItems()
         inventory.fromTag(pCompound.getList("upgrades", NbtType.COMPOUND))
         environment.script = pCompound.getString("script")
     }
 
     override fun onAddedToWorld() {
         super.onAddedToWorld()
-        environment.enable()
+        environment.onLoad()
     }
 
     override fun tick() {
@@ -69,37 +65,52 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
 
     override fun onRemovedFromWorld() {
         super.onRemovedFromWorld()
-        environment.discard()
+        environment.onUnload()
+    }
+
+    override fun remove(pReason: RemovalReason) {
+        super.remove(pReason)
+        environment.onRemove(BotDead)
     }
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if (!this::currentRunFuture.isInitialized || this.currentRunFuture.isDone) {
-            if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH) {
-                if (!this.level.isClientSide) {
-                    pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
-                        BotMountMenu(
-                            containerId,
-                            playerInventory,
-                            inventory
-                        )
-                    }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
-                }
-                return InteractionResult.sidedSuccess(this.level.isClientSide)
-            } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER) {
-                if (!this.level.isClientSide) {
-                    NetworkManager.INSTANCE.send(
-                        PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
-                        ClientboundOpenProgrammerScreenPacket(this.id, environment.script)
-                    )
-                }
-                return InteractionResult.sidedSuccess(this.level.isClientSide)
-            } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
-                if (!this.level.isClientSide) {
-                    environment.recollectAbilities(inventory)
-                    currentRunFuture = EXECUTOR.submit(environment)
-                }
-                return InteractionResult.sidedSuccess(this.level.isClientSide)
+        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && !environment.running) {
+            if (!this.level.isClientSide) {
+                pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
+                    BotMountMenu(
+                        containerId,
+                        playerInventory,
+                        inventory
+                    ) }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
             }
+            return InteractionResult.sidedSuccess(this.level.isClientSide)
+        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && !environment.running) {
+            if (!this.level.isClientSide) {
+                NetworkManager.INSTANCE.send(
+                    PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
+                    ClientboundOpenProgrammerScreenPacket(this.id, environment.script)
+                )
+            }
+            return InteractionResult.sidedSuccess(this.level.isClientSide)
+        } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
+            if (!this.level.isClientSide) {
+                if(environment.running) {
+                    if(environment.deactivatePending) {
+                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.forcibly"), getUUID())
+                    } else if(environment.forceDeactivating) {
+                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.already_forcibly"), getUUID())
+                    } else {
+                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.attempt"), getUUID())
+                    }
+                    environment.requestDeactivate()
+                } else {
+                    pPlayer.sendMessage(TranslatableComponent("botjs.msg.enabling"), getUUID())
+                    environment.resetState()
+                    environment.collectAbilities(inventory)
+                    currentRunFuture = environment.launch()
+                }
+            }
+            return InteractionResult.sidedSuccess(this.level.isClientSide)
         }
         return super.interact(pPlayer, pHand)
     }

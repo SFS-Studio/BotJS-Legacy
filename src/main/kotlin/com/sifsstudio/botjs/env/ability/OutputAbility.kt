@@ -10,10 +10,14 @@ class OutputAbility: AbilityBase() {
     override val id = "output"
 
     @Suppress("unused")
-    fun speak(content: String) = env.pending(SpeakTask(content)).join()
+    fun speak(content: String) {
+        env.pending(SpeakTask(content)).join()
+    }
 
     @Suppress("unused")
-    fun log(content: String) = LOGGER.info(content)
+    fun log(content: String) {
+        LOGGER.info(content)
+    }
 
     companion object {
         private val LOGGER = LogManager.getLogger("BOT")
@@ -24,7 +28,6 @@ class OutputAbility: AbilityBase() {
                 env.entity.server!!.playerList.broadcastMessage(TextComponent(content), ChatType.CHAT, Util.NIL_UUID)
                 done(Unit)
             }
-
         }
     }
 }

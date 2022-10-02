@@ -1,5 +1,6 @@
 package com.sifsstudio.botjs.env.ability
 
+import com.sifsstudio.botjs.env.api.FutureHandle
 import com.sifsstudio.botjs.env.task.TaskBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 import net.minecraft.core.Direction
@@ -10,23 +11,25 @@ class MovementAbility : AbilityBase() {
     override val id = "movement"
 
     @Suppress("unused")
-    fun moveTo(x: Double, z: Double) = env.pending(MovementTask(x, z)).join()
+    fun moveTo(x: Double, z: Double): MoveResult { return env.pending(MovementTask(x, z)).joinOrThrow() }
 
     @Suppress("unused")
-    fun moveToAsync(x: Double, z: Double) = env.pending(MovementTask(x, z))
+    fun moveToAsync(x: Double, z: Double): FutureHandle<MoveResult> { return FutureHandle(env.pending(MovementTask(x, z))) }
 
     @Suppress("unused")
     fun move(direction: Direction, distance: Double): MoveResult {
         check(distance >= 0)
-        return if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance)).join()
+        return if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance)).join().getOrThrow()
                 else successResult
     }
 
     @Suppress("unused")
-    fun moveAsync(direction: Direction, distance: Double): TaskFuture<MoveResult> {
+    fun moveAsync(direction: Direction, distance: Double): FutureHandle<MoveResult> {
         check(distance >= 0)
-        return if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance))
+        return FutureHandle(
+            if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance))
                 else TaskFuture.successFuture(successResult)
+        )
     }
 
     companion object {

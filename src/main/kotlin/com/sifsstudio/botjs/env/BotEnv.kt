@@ -3,36 +3,62 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.ability.Ability
 import com.sifsstudio.botjs.env.api.Bot
+import com.sifsstudio.botjs.env.task.ForceShutdown
+import com.sifsstudio.botjs.env.task.ServerShutdown
 import com.sifsstudio.botjs.env.task.Task
-import com.sifsstudio.botjs.env.task.TaskFuture
+import com.sifsstudio.botjs.env.task.TaskManager
 import com.sifsstudio.botjs.item.UpgradeItem
 import dev.latvian.mods.rhino.Context
 import dev.latvian.mods.rhino.ScriptableObject
-import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.Style
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
-import org.apache.logging.log4j.LogManager
-import java.util.*
+import net.minecraftforge.event.server.ServerStoppingEvent
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 
 class BotEnv(val entity: BotEntity) : Runnable {
-    private val tasks: MutableMap<Task<*>, Boolean> = Collections.synchronizedMap(Object2BooleanOpenHashMap())
-    private var active = false
-    var script: String = ""
-    private val abilities: MutableSet<Ability> = HashSet()
-    private var available = false
 
-    fun <T : Task<R>, R : Any> pending(tsk: T) =
-        synchronized(this) {
-            if (available && active) {
-                tasks[tsk] = false
-                tsk.future
-            } else TaskFuture.failedFuture()
-        }
+    private val lock: Lock = ReentrantLock()
+
+    private val tasks: TaskManager = TaskManager(this)
+
+    private val abilities: MutableSet<Ability> = HashSet()
+
+    private var botObject: Bot? = null
+
+    var deactivatePending = false
+        private set
+
+    var forceDeactivating = false
+        private set
+
+    var running = false
+        private set
+
+    var loaded = false
+        private set
+
+    var script: String = ""
+
+    var valid = false
+        private set
+
+    fun <T : Task<R>, R : Any> pending(tsk: T) = tasks.pending(tsk)
+
+    init {
+        ALL_ENVS.add(this)
+        valid = true
+    }
 
     fun install(ability: Ability) {
         ability.bind(this)
@@ -43,7 +69,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         abilities.removeIf(ability::isInstance)
     }
 
-    fun recollectAbilities(inventory: SimpleContainer) {
+    fun collectAbilities(inventory: SimpleContainer) {
         abilities.clear()
         var stack: ItemStack
         for (i in 0..8) {
@@ -55,12 +81,15 @@ class BotEnv(val entity: BotEntity) : Runnable {
     }
 
     override fun run() {
-        check(available && !active)
-        active = true
+        lock.lock()
+        check(valid && loaded && !running)
+        running = true
         val context = Context.enter()
+        botObject = Bot(abilities)
         val root = context.initStandardObjects().apply {
-            defineProperty("bot", Bot(abilities), ScriptableObject.CONST)
+            defineProperty("bot", botObject, ScriptableObject.CONST)
         }
+        lock.unlock()
         try {
             context.evaluateString(root, script, "bot_script", 1, null)
         } catch (exception: Exception) {
@@ -70,38 +99,69 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 ).withStyle(Style.EMPTY.withColor(ChatFormatting.RED)), ChatType.CHAT, Util.NIL_UUID
             )
         }
+        lock.lock()
+        botObject = null
         Context.exit()
-        active = false
+        running = false
+        lock.unlock()
     }
 
-    fun tick() = synchronized(this) {
-        if (!active || !available) return
-        tasks.iterator().run {
-            var entry: MutableMap.MutableEntry<Task<*>, Boolean>
-            var task: Task<*>
-            while (hasNext()) {
-                entry = next()
-                task = entry.key
-                if (!entry.value) {
-                    if (!task.accepts(this@BotEnv)) {
-                        remove()
-                    } else entry.setValue(true)
-                } else {
-                    task.tick()
-                    if (task.future.done) {
-                        remove()
-                    }
-                }
-            }
+    fun launch(): Future<*> {
+        resetState()
+        return EXECUTOR.submit(this)
+    }
+
+    fun tick() = lock.withLock {
+        tasks.tick()
+        if (!running || !valid || !loaded || deactivatePending) return
+        botObject!!.releaseWait(true)
+    }
+
+    fun onRemove(reason: Throwable) = lock.withLock {
+        loaded = false
+        tasks.discard(reason)
+        if(running) {
+            botObject!!.releaseWait(false)
+        }
+        valid = false
+    }
+
+    fun onUnload() = lock.withLock {
+        loaded = false
+    }
+
+    fun onLoad() = lock.withLock {
+        loaded = true
+    }
+
+    fun requestDeactivate() {
+        if(forceDeactivating) return
+
+        if(deactivatePending) {
+            onRemove(ForceShutdown)
+            forceDeactivating = true
+        } else {
+            deactivatePending = true
+            botObject!!.releaseWait(false)
         }
     }
 
-    fun discard() = synchronized(this) {
-        available = false
-        tasks.clear()
+    fun resetState() {
+        deactivatePending = false
+        forceDeactivating = false
     }
 
-    fun enable() {
-        available = true
+    companion object {
+        val ALL_ENVS: MutableSet<BotEnv> = HashSet()
+        val BOT_THREAD_ID = AtomicInteger(0)
+        val EXECUTOR: ExecutorService = Executors.newCachedThreadPool { Thread(it, "BotJS-BotThread-"+ BOT_THREAD_ID.getAndIncrement()) }
+        fun onServerStopping(event: ServerStoppingEvent) {
+            ALL_ENVS.iterator().apply {
+                while(hasNext()) {
+                    next().onRemove(ServerShutdown)
+                    remove()
+                }
+            }
+        }
     }
 }

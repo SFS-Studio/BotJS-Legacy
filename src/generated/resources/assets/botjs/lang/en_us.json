@@ -8,5 +8,9 @@
   "item.botjs.switch": "Switch",
   "item.botjs.timing_upgrade": "Timing Upgrade",
   "item.botjs.wrench": "Wrench",
-  "itemGroup.botjs": "BotJS"
+  "itemGroup.botjs": "BotJS",
+  "botjs.msg.enable": "The bot is now enabled.",
+  "botjs.msg.disabling.attempt" : "Requested the bot to shutdown.",
+  "botjs.msg.disabling.forcibly": "Now it will be shut down forcibly...",
+  "botjs.msg.disabling.already_forcibly": "We've tried our best:) Good luck to you!"
 }

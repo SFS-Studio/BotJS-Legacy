@@ -1,29 +1,23 @@
 package com.sifsstudio.botjs.env.task
 
-interface TaskFuture<T: Any> {
+interface TaskFuture<T> {
     val done: Boolean
-    val result: T
-    fun join(): T
+    fun result(): Result<T>?
+    fun resultOrThrow() = result()?.getOrThrow()
+    fun join(): Result<T>
+    fun joinOrThrow() = join().getOrThrow()
 
     companion object {
-
         val successUnitFuture: TaskFuture<Unit> = successFuture(Unit)
-
-        val failedUnitFuture: TaskFuture<Unit> = failedFuture()
-
-        fun<T: Any> failedFuture() = object: TaskFuture<T> {
+        fun<T: Any> failedFuture(reason: Throwable) = object: TaskFuture<T> {
             override val done = true
-            override val result: T
-                get() = throw IllegalStateException()
-
-            override fun join(): T = throw IllegalStateException()
+            override fun result() = Result.failure<T>(reason)
+            override fun join() = Result.failure<T>(reason)
         }
-
         fun<T: Any> successFuture(result: T) = object: TaskFuture<T> {
             override val done = true
-            override val result = result
-
-            override fun join() = result
+            override fun result() = Result.success(result)
+            override fun join() = Result.success(result)
         }
     }
 }

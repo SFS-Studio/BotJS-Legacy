@@ -1,6 +1,5 @@
 package com.sifsstudio.botjs.env.ability
 
-import com.sifsstudio.botjs.env.api.FutureHandle
 import com.sifsstudio.botjs.env.task.TaskBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 import net.minecraft.core.Direction
@@ -14,7 +13,8 @@ class MovementAbility : AbilityBase() {
     fun moveTo(x: Double, z: Double): MoveResult { return env.pending(MovementTask(x, z)).joinOrThrow() }
 
     @Suppress("unused")
-    fun moveToAsync(x: Double, z: Double): FutureHandle<MoveResult> { return FutureHandle(env.pending(MovementTask(x, z))) }
+    fun moveToAsync(x: Double, z: Double): com.sifsstudio.botjs.env.api.FutureHandle<MoveResult> { return com.sifsstudio.botjs.env.api.FutureHandle(env.pending(MovementTask(x, z)))
+    }
 
     @Suppress("unused")
     fun move(direction: Direction, distance: Double): MoveResult {
@@ -24,11 +24,11 @@ class MovementAbility : AbilityBase() {
     }
 
     @Suppress("unused")
-    fun moveAsync(direction: Direction, distance: Double): FutureHandle<MoveResult> {
+    fun moveAsync(direction: Direction, distance: Double): com.sifsstudio.botjs.env.api.FutureHandle<MoveResult> {
         check(distance >= 0)
-        return FutureHandle(
+        return com.sifsstudio.botjs.env.api.FutureHandle(
             if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance))
-                else TaskFuture.successFuture(successResult)
+            else TaskFuture.successFuture(successResult)
         )
     }
 

@@ -2,7 +2,7 @@ package com.sifsstudio.botjs.env
 
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.ability.Ability
-import com.sifsstudio.botjs.env.api.Bot
+import com.sifsstudio.botjs.env.api.BotImpl
 import com.sifsstudio.botjs.env.task.ForceShutdown
 import com.sifsstudio.botjs.env.task.ServerShutdown
 import com.sifsstudio.botjs.env.task.Task
@@ -16,42 +16,71 @@ import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.Style
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraftforge.event.server.ServerStartingEvent
 import net.minecraftforge.event.server.ServerStoppingEvent
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
+import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 
+/**
+ * The bot environment is the hub between bot thread
+ * and the server thread. Thus, it's necessary to keep
+ * it synchronized at any time.
+ * it's rather difficult to understand for some people.
+ * Here some necessary descriptions are to be given about
+ * the mechanics.
+ *
+ * @author InitAuther97
+ */
 class BotEnv(val entity: BotEntity) : Runnable {
 
-    private val lock: Lock = ReentrantLock()
+    private val lockObject = Object()
 
     private val tasks: TaskManager = TaskManager(this)
 
     private val abilities: MutableSet<Ability> = HashSet()
 
-    private var botObject: Bot? = null
+    private var botObject: BotImpl? = null
 
+    /**
+     * A bot can be requested to stop at two different
+     * seriousness.
+     *
+     * When it is requested at first, terminate it after the
+     * current tick.
+     *
+     * When it is requested the second time before it actually
+     * stops, it will discard the tasks and throw an exception
+     * to terminate the execution if it's waiting on the task.
+     *
+     * The third one actually does nothing, but say something
+     * to the player.
+     */
     var deactivatePending = false
         private set
 
     var forceDeactivating = false
         private set
 
+    /**
+     * Whether the script engine is still running
+     */
     var running = false
         private set
 
+    /**
+     * Whether the bot is ticking
+     */
     var loaded = false
         private set
 
-    var script: String = ""
-
+    /**
+     * Whether the following operations(except) can be done
+     */
     var valid = false
         private set
+
+    var script: String = ""
 
     fun <T : Task<R>, R : Any> pending(tsk: T) = tasks.pending(tsk)
 
@@ -81,15 +110,17 @@ class BotEnv(val entity: BotEntity) : Runnable {
     }
 
     override fun run() {
-        lock.lock()
-        check(valid && loaded && !running)
-        running = true
-        val context = Context.enter()
-        botObject = Bot(abilities)
-        val root = context.initStandardObjects().apply {
-            defineProperty("bot", botObject, ScriptableObject.CONST)
+        var context: Context
+        var root: ScriptableObject
+        synchronized(lockObject) {
+            check(valid && loaded && !running)
+            running = true
+            context = Context.enter()
+            botObject = BotImpl(abilities)
+            root = context.initStandardObjects().apply {
+                defineProperty("bot", botObject, ScriptableObject.CONST)
+            }
         }
-        lock.unlock()
         try {
             context.evaluateString(root, script, "bot_script", 1, null)
         } catch (exception: Exception) {
@@ -99,11 +130,11 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 ).withStyle(Style.EMPTY.withColor(ChatFormatting.RED)), ChatType.CHAT, Util.NIL_UUID
             )
         }
-        lock.lock()
-        botObject = null
-        Context.exit()
-        running = false
-        lock.unlock()
+        synchronized(lockObject) {
+            botObject = null
+            Context.exit()
+            running = false
+        }
     }
 
     fun launch(): Future<*> {
@@ -111,26 +142,28 @@ class BotEnv(val entity: BotEntity) : Runnable {
         return EXECUTOR.submit(this)
     }
 
-    fun tick() = lock.withLock {
+    /**
+     * The operations from the main thread
+     */
+    fun tick() = synchronized(lockObject) {
+        if(!valid) return
         tasks.tick()
-        if (!running || !valid || !loaded || deactivatePending) return
-        botObject!!.releaseWait(true)
     }
 
-    fun onRemove(reason: Throwable) = lock.withLock {
+    fun onRemove(reason: Throwable) = synchronized(lockObject) {
         loaded = false
         tasks.discard(reason)
         if(running) {
-            botObject!!.releaseWait(false)
+            botObject!!.tickable = false
         }
         valid = false
     }
 
-    fun onUnload() = lock.withLock {
+    fun onUnload() = synchronized(lockObject) {
         loaded = false
     }
 
-    fun onLoad() = lock.withLock {
+    fun onLoad() = synchronized(lockObject) {
         loaded = true
     }
 
@@ -142,7 +175,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
             forceDeactivating = true
         } else {
             deactivatePending = true
-            botObject!!.releaseWait(false)
+            botObject!!.tickable = false
         }
     }
 
@@ -154,14 +187,27 @@ class BotEnv(val entity: BotEntity) : Runnable {
     companion object {
         val ALL_ENVS: MutableSet<BotEnv> = HashSet()
         val BOT_THREAD_ID = AtomicInteger(0)
-        val EXECUTOR: ExecutorService = Executors.newCachedThreadPool { Thread(it, "BotJS-BotThread-"+ BOT_THREAD_ID.getAndIncrement()) }
+        lateinit var EXECUTOR: ExecutorService
+        var accept = false
         fun onServerStopping(event: ServerStoppingEvent) {
+            accept = false
+
             ALL_ENVS.iterator().apply {
                 while(hasNext()) {
                     next().onRemove(ServerShutdown)
                     remove()
                 }
             }
+
+            if (EXECUTOR.awaitTermination(5000, TimeUnit.MILLISECONDS)) {
+                println("Some bots are still running. Shutting down forcibly...")
+                EXECUTOR.shutdownNow()
+            }
+        }
+
+        fun onServerStarting(event: ServerStartingEvent) {
+            accept = true
+            EXECUTOR = Executors.newCachedThreadPool { Thread(it, "BotJS-BotThread-"+ BOT_THREAD_ID.getAndIncrement()) }
         }
     }
 }

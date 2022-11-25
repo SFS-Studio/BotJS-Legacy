@@ -2,6 +2,7 @@ plugins {
     id 'net.minecraftforge.gradle' version '5.1.+'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
     id "org.jetbrains.kotlin.jvm" version "1.7.10"
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 apply from: 'kff-3.7.1-patched.gradle'
@@ -86,16 +87,21 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+configurations {
+    shade
+    minecraftLibrary.extendsFrom shade
+}
+
 dependencies {
     minecraft 'net.minecraftforge:forge:1.18.2-40.1.85'
 
-    minecraftLibrary "org.mozilla:rhino:1.7.14"
+    shade "org.mozilla:rhino:1.7.14"
 }
 
 minecraft.runs.all {
     String previous = lazyTokens['minecraft_classpath'].get()
     lazyToken('minecraft_classpath') {
-        configurations.minecraftLibrary.copyRecursive().resolve().collect {
+        configurations.shade.copyRecursive().resolve().collect {
             it.absolutePath
         }.join(File.pathSeparator) + File.pathSeparator + previous
     }
@@ -106,6 +112,7 @@ compileKotlin {
 }
 
 jar {
+    archiveClassifier = "slim"
     manifest {
         attributes([
                 "Specification-Title"     : "botjs",
@@ -117,6 +124,19 @@ jar {
                 "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+}
+
+shadowJar {
+    archiveClassifier = ''
+    configurations = [project.configurations.shade]
+    relocate 'org.mozilla', "${project.group}.relocated.rhino"
+    finalizedBy 'reobfShadowJar'
+}
+
+assemble.dependsOn shadowJar
+
+reobf {
+    shadowJar {}
 }
 
 jar.finalizedBy('reobfJar')

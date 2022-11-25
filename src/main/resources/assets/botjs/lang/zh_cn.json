@@ -1,14 +1,12 @@
 {
   "botjs.menu.bot_mount_title": "挂载",
   "botjs.menu.programmer.title": "编程器",
+  "entity.botjs.bot": "Bot",
   "item.botjs.movement_upgrade": "移动升级",
   "item.botjs.output_upgrade": "输出升级",
   "item.botjs.programmer": "编程器",
   "item.botjs.switch": "开关",
   "item.botjs.timing_upgrade": "时控升级",
   "item.botjs.wrench": "扳手",
-  "botjs.msg.disabling.attempt": "正请求 Bot 关闭",
-  "botjs.msg.disabling.forcibly": "现在它将被强制关闭",
-  "botjs.msg.disabling.already_forcibly": "尽力了。祝你好运:)",
-  "botjs.msg.enable": "Bot 已启动."
+  "itemGroup.botjs": "BotJS"
 }

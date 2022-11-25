@@ -7,4 +7,4 @@ import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.api.distmarker.OnlyIn
 
 @OnlyIn(Dist.CLIENT)
-class BotModel(pRoot: ModelPart): HumanoidModel<BotEntity>(pRoot)
+class BotModel(pRoot: ModelPart) : HumanoidModel<BotEntity>(pRoot)

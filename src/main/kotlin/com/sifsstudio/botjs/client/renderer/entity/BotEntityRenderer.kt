@@ -10,7 +10,8 @@ import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.api.distmarker.OnlyIn
 
 @OnlyIn(Dist.CLIENT)
-class BotEntityRenderer(pContext: EntityRendererProvider.Context): LivingEntityRenderer<BotEntity, BotModel>(pContext, BotModel(pContext.bakeLayer(BotJSModelLayers.BOT)), 0.5F) {
+class BotEntityRenderer(pContext: EntityRendererProvider.Context) :
+    LivingEntityRenderer<BotEntity, BotModel>(pContext, BotModel(pContext.bakeLayer(BotJSModelLayers.BOT)), 0.5F) {
     override fun getTextureLocation(pEntity: BotEntity): ResourceLocation {
         return ResourceLocation("textures/entity/steve.png")
     }

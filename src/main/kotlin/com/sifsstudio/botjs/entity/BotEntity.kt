@@ -34,7 +34,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
         addListener {
             for (i in 0 until it.containerSize) {
                 val itemStack = it.getItem(i)
-                if (itemStack != ItemStack.EMPTY) {
+                if (itemStack != ItemStack.EMPTY && itemStack.item is UpgradeItem) {
                     (itemStack.item as UpgradeItem).upgrade(environment)
                 }
             }

@@ -288,7 +288,10 @@ class ProgrammerScreen(private val entityId: Int, private var script: String) :
             true
         } else {
             if (pButton == 0) {
-                val i = displayCache!!.getIndexAtPosition(font, convertScreenToLocal(Pos2i(pMouseX.toInt(), pMouseY.toInt())))
+                val i = displayCache!!.getIndexAtPosition(
+                    font,
+                    convertScreenToLocal(Pos2i(pMouseX.toInt(), pMouseY.toInt()))
+                )
                 codeEdit.setCursorPos(i, true)
                 clearDisplayCache()
             }

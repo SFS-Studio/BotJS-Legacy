@@ -11,7 +11,8 @@ import net.minecraftforge.registries.IForgeRegistryEntry
 
 class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID, "en_us") {
     companion object {
-        val <V : IForgeRegistryEntry<V>> ForgeRegistryEntry<V>.English get() = registryName!!.path.split('_').joinToString(" ") { it.replaceFirstChar { it.uppercase() } }
+        val <V : IForgeRegistryEntry<V>> ForgeRegistryEntry<V>.English
+            get() = registryName!!.path.split('_').joinToString(" ") { it.replaceFirstChar { it.uppercase() } }
 
         val entries = mapOf(
             "botjs.menu.programmer.title" to "Programmer",
@@ -21,6 +22,7 @@ class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID
 
 
     }
+
     override fun addTranslations() {
         Items.REGISTRY.entries.forEach {
             val item = it.get()
@@ -36,7 +38,7 @@ class ModLangEn(generator: DataGenerator) : LanguageProvider(generator, BotJS.ID
             val name = entity.English
             addEntityType({ entity }, name)
         }
-        entries.forEach { (key, value)->
+        entries.forEach { (key, value) ->
             add(key, value)
         }
     }

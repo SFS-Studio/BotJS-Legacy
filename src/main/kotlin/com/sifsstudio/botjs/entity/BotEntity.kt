@@ -2,14 +2,16 @@ package com.sifsstudio.botjs.entity
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.task.BotDead
+import com.sifsstudio.botjs.env.BotEnv.Companion.EXECUTOR_SERVICE
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
+import com.sifsstudio.botjs.item.UpgradeItem
 import com.sifsstudio.botjs.network.ClientboundOpenProgrammerScreenPacket
 import com.sifsstudio.botjs.network.NetworkManager
+import com.sifsstudio.botjs.util.getList
 import com.sifsstudio.botjs.util.isItem
-import dev.latvian.mods.rhino.mod.util.NbtType
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.TranslatableComponent
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -28,8 +30,17 @@ import java.util.concurrent.Future
 
 class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, level) {
 
-    val environment: BotEnv = BotEnv(this)
-    private val inventory: SimpleContainer = SimpleContainer(9)
+    private val inventory: SimpleContainer = SimpleContainer(9).apply {
+        addListener {
+            for (i in 0 until it.containerSize) {
+                val itemStack = it.getItem(i)
+                if (itemStack != ItemStack.EMPTY) {
+                    (itemStack.item as UpgradeItem).upgrade(environment)
+                }
+            }
+        }
+    }
+    val environment = BotEnv(this)
     private lateinit var currentRunFuture: Future<*>
 
     override fun getArmorSlots() = emptyList<ItemStack>()
@@ -43,34 +54,41 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
     override fun addAdditionalSaveData(pCompound: CompoundTag) {
         super.addAdditionalSaveData(pCompound)
         pCompound.put("upgrades", inventory.createTag())
-        pCompound.putString("script", environment.script)
+        if (!this.level.isClientSide) {
+            pCompound.put("environment", environment.serialize())
+        }
     }
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
         super.readAdditionalSaveData(pCompound)
         inventory.removeAllItems()
-        inventory.fromTag(pCompound.getList("upgrades", NbtType.COMPOUND))
-        environment.script = pCompound.getString("script")
+        inventory.fromTag(pCompound.getList("upgrades", Tag.TAG_COMPOUND))
+        if (!this.level.isClientSide) {
+            environment.deserialize(pCompound.getCompound("environment"))
+        }
     }
 
     override fun onAddedToWorld() {
         super.onAddedToWorld()
-        environment.onLoad()
+        if (!this.level.isClientSide) {
+            if (environment.serializedFrame.isNotEmpty()) {
+                currentRunFuture = EXECUTOR_SERVICE.submit(environment)
+            }
+        }
     }
 
     override fun tick() {
         super.tick()
-        environment.tick()
+        if (!this.level.isClientSide) {
+            environment.tick()
+        }
     }
 
     override fun onRemovedFromWorld() {
         super.onRemovedFromWorld()
-        environment.onUnload()
-    }
-
-    override fun remove(pReason: RemovalReason) {
-        super.remove(pReason)
-        environment.onRemove(BotDead)
+        if (!this.level.isClientSide) {
+            environment.remove()
+        }
     }
 
     override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
@@ -81,7 +99,8 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
                         containerId,
                         playerInventory,
                         inventory
-                    ) }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
+                    )
+                }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && !environment.running) {
@@ -94,20 +113,15 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
-                if(environment.running) {
-                    if(environment.deactivatePending) {
-                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.forcibly"), getUUID())
-                    } else if(environment.forceDeactivating) {
-                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.already_forcibly"), getUUID())
-                    } else {
-                        pPlayer.sendMessage(TranslatableComponent("botjs.msg.disabling.attempt"), getUUID())
-                    }
-                    environment.requestDeactivate()
+                if (!environment.running) {
+                    currentRunFuture = EXECUTOR_SERVICE.submit(environment)
                 } else {
-                    pPlayer.sendMessage(TranslatableComponent("botjs.msg.enabling"), getUUID())
-                    environment.resetState()
-                    environment.collectAbilities(inventory)
-                    currentRunFuture = environment.launch()
+                    if (this::currentRunFuture.isInitialized) {
+                        currentRunFuture.cancel(true)
+                    } else {
+                        // IMPOSSIBLE
+                        throw IllegalStateException()
+                    }
                 }
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)

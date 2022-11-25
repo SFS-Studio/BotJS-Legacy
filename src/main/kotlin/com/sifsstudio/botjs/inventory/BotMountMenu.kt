@@ -8,11 +8,12 @@ import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 
-class BotMountMenu(pContainerId: Int, pPlayerInventory: Inventory, private val pContainer: Container): AbstractContainerMenu(MenuTypes.BOT_MENU, pContainerId) {
+class BotMountMenu(pContainerId: Int, pPlayerInventory: Inventory, private val pContainer: Container) :
+    AbstractContainerMenu(MenuTypes.BOT_MENU, pContainerId) {
 
     init {
         pContainer.startOpen(pPlayerInventory.player)
-        for(i in 0..8) {
+        for (i in 0..8) {
             addSlot(Slot(pContainer, i, 18 * i, 18))
         }
         for (i in 0..2) {
@@ -26,7 +27,11 @@ class BotMountMenu(pContainerId: Int, pPlayerInventory: Inventory, private val p
         }
     }
 
-    constructor(pContainerId: Int, pPlayerInventory: Inventory) : this(pContainerId, pPlayerInventory, SimpleContainer(9))
+    constructor(pContainerId: Int, pPlayerInventory: Inventory) : this(
+        pContainerId,
+        pPlayerInventory,
+        SimpleContainer(9)
+    )
 
     override fun removed(pPlayer: Player) {
         super.removed(pPlayer)

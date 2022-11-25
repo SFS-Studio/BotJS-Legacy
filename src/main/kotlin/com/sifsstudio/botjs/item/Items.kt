@@ -1,9 +1,9 @@
 package com.sifsstudio.botjs.item
 
 import com.sifsstudio.botjs.BotJS
-import com.sifsstudio.botjs.env.ability.TimingAbility
-import com.sifsstudio.botjs.env.ability.MovementAbility
-import com.sifsstudio.botjs.env.ability.OutputAbility
+import com.sifsstudio.botjs.env.api.ability.MovementAbility
+import com.sifsstudio.botjs.env.api.ability.OutputAbility
+import com.sifsstudio.botjs.env.api.ability.TimingAbility
 import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -21,13 +21,13 @@ object Items {
     }
 
     val TIMING_UPGRADE: Item
-            by REGISTRY.registerObject("timing_upgrade") { UpgradeItem.withAbility { TimingAbility() } }
+            by REGISTRY.registerObject("timing_upgrade") { UpgradeItem.withAbility { TimingAbility(it) } }
 
     val MOVEMENT_UPGRADE: Item
-            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility() }}
+            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility(it) } }
 
     val OUTPUT_UPGRADE: Item
-            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { OutputAbility() }}
+            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { OutputAbility(it) } }
 
     val WRENCH: Item
             by REGISTRY.registerObject("wrench") {

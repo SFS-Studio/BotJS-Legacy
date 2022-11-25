@@ -3,8 +3,8 @@ plugins {
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
     id "org.jetbrains.kotlin.jvm" version "1.7.10"
 }
-// GFW
-apply from: 'https://ghproxy.com/https://raw.githubusercontent.com/thedarkcolour/KotlinForForge/site/thedarkcolour/kotlinforforge/gradle/kff-3.7.0.gradle'
+
+apply from: 'kff-3.7.1-patched.gradle'
 
 group = 'com.sifsstudio'
 version = '1.0-SNAPSHOT'
@@ -15,7 +15,7 @@ java {
 }
 
 minecraft {
-    mappings channel: 'parchment', version: '2022.08.02-1.18.2'
+    mappings channel: 'parchment', version: '2022.11.06-1.18.2'
 
     runs {
         client {
@@ -86,19 +86,19 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
-repositories {
-    maven {
-        url = "https://maven.saps.dev/minecraft"
-        content {
-            includeGroup "dev.latvian.mods"
-        }
-    }
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.18.2-40.1.85'
+
+    minecraftLibrary "org.mozilla:rhino:1.7.14"
 }
 
-dependencies {
-    minecraft 'net.minecraftforge:forge:1.18.2-40.1.68'
-
-    implementation fg.deobf("dev.latvian.mods:rhino-forge:1802.1.14-build.206")
+minecraft.runs.all {
+    String previous = lazyTokens['minecraft_classpath'].get()
+    lazyToken('minecraft_classpath') {
+        configurations.minecraftLibrary.copyRecursive().resolve().collect {
+            it.absolutePath
+        }.join(File.pathSeparator) + File.pathSeparator + previous
+    }
 }
 
 compileKotlin {

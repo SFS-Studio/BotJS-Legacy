@@ -21,11 +21,26 @@ object NetworkManager {
     )
 
     fun registerPackets() {
-        registerPacket(ServerboundScriptChangedPacket::class, ServerboundScriptChangedPacket.Companion::encode, ServerboundScriptChangedPacket.Companion::decode, ServerboundScriptChangedPacket.Companion::handle)
-        registerPacket(ClientboundOpenProgrammerScreenPacket::class, ClientboundOpenProgrammerScreenPacket.Companion::encode, ClientboundOpenProgrammerScreenPacket.Companion::decode, ClientboundOpenProgrammerScreenPacket.Companion::handle)
+        registerPacket(
+            ServerboundScriptChangedPacket::class,
+            ServerboundScriptChangedPacket.Companion::encode,
+            ServerboundScriptChangedPacket.Companion::decode,
+            ServerboundScriptChangedPacket.Companion::handle
+        )
+        registerPacket(
+            ClientboundOpenProgrammerScreenPacket::class,
+            ClientboundOpenProgrammerScreenPacket.Companion::encode,
+            ClientboundOpenProgrammerScreenPacket.Companion::decode,
+            ClientboundOpenProgrammerScreenPacket.Companion::handle
+        )
     }
 
-    private fun <MSG : Any> registerPacket(clazz: KClass<MSG>, encoder: (MSG, FriendlyByteBuf) -> Unit, decoder: (FriendlyByteBuf) -> MSG, handler: (MSG, Supplier<NetworkEvent.Context>) -> Unit) {
+    private fun <MSG : Any> registerPacket(
+        clazz: KClass<MSG>,
+        encoder: (MSG, FriendlyByteBuf) -> Unit,
+        decoder: (FriendlyByteBuf) -> MSG,
+        handler: (MSG, Supplier<NetworkEvent.Context>) -> Unit
+    ) {
         @Suppress("INACCESSIBLE_TYPE")
         INSTANCE.registerMessage(id++, clazz.java, encoder, decoder, handler)
     }

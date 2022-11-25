@@ -1,213 +1,158 @@
 package com.sifsstudio.botjs.env
 
 import com.sifsstudio.botjs.entity.BotEntity
-import com.sifsstudio.botjs.env.ability.Ability
-import com.sifsstudio.botjs.env.api.BotImpl
-import com.sifsstudio.botjs.env.task.ForceShutdown
-import com.sifsstudio.botjs.env.task.ServerShutdown
-import com.sifsstudio.botjs.env.task.Task
-import com.sifsstudio.botjs.env.task.TaskManager
-import com.sifsstudio.botjs.item.UpgradeItem
-import dev.latvian.mods.rhino.Context
-import dev.latvian.mods.rhino.ScriptableObject
-import net.minecraft.ChatFormatting
-import net.minecraft.Util
-import net.minecraft.network.chat.ChatType
-import net.minecraft.network.chat.Style
-import net.minecraft.world.SimpleContainer
-import net.minecraft.world.item.ItemStack
-import net.minecraftforge.event.server.ServerStartingEvent
-import net.minecraftforge.event.server.ServerStoppingEvent
-import java.util.concurrent.*
+import com.sifsstudio.botjs.env.api.Bot
+import com.sifsstudio.botjs.env.api.ability.AbilityBase
+import net.minecraft.nbt.CompoundTag
+import org.apache.commons.codec.binary.Base64
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.ContinuationPending
+import org.mozilla.javascript.ScriptableObject
+import org.mozilla.javascript.WrappedException
+import org.mozilla.javascript.serialize.ScriptableInputStream
+import org.mozilla.javascript.serialize.ScriptableOutputStream
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.reflect.KClass
+import java.util.concurrent.locks.Condition
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
-/**
- * The bot environment is the hub between bot thread
- * and the server thread. Thus, it's necessary to keep
- * it synchronized at any time.
- * it's rather difficult to understand for some people.
- * Here some necessary descriptions are to be given about
- * the mechanics.
- *
- * @author InitAuther97
- */
 class BotEnv(val entity: BotEntity) : Runnable {
 
-    private val lockObject = Object()
-
-    private val tasks: TaskManager = TaskManager(this)
-
-    private val abilities: MutableSet<Ability> = HashSet()
-
-    private var botObject: BotImpl? = null
-
-    /**
-     * A bot can be requested to stop at two different
-     * seriousness.
-     *
-     * When it is requested at first, terminate it after the
-     * current tick.
-     *
-     * When it is requested the second time before it actually
-     * stops, it will discard the tasks and throw an exception
-     * to terminate the execution if it's waiting on the task.
-     *
-     * The third one actually does nothing, but say something
-     * to the player.
-     */
-    var deactivatePending = false
-        private set
-
-    var forceDeactivating = false
-        private set
-
-    /**
-     * Whether the script engine is still running
-     */
+    var script = ""
     var running = false
         private set
+    private var pendingTask: Pair<TickableTask, Pair<ReentrantLock, Condition>>? = null
+    private lateinit var scope: ScriptableObject
+    private var abilities: MutableMap<String, AbilityBase> = mutableMapOf()
+    var serializedFrame = ""
 
-    /**
-     * Whether the bot is ticking
-     */
-    var loaded = false
-        private set
-
-    /**
-     * Whether the following operations(except) can be done
-     */
-    var valid = false
-        private set
-
-    var script: String = ""
-
-    fun <T : Task<R>, R : Any> pending(tsk: T) = tasks.pending(tsk)
-
-    init {
-        ALL_ENVS.add(this)
-        valid = true
-    }
-
-    fun install(ability: Ability) {
-        ability.bind(this)
-        abilities.add(ability)
-    }
-
-    fun uninstall(ability: KClass<out Ability>) {
-        abilities.removeIf(ability::isInstance)
-    }
-
-    fun collectAbilities(inventory: SimpleContainer) {
-        abilities.clear()
-        var stack: ItemStack
-        for (i in 0..8) {
-            stack = inventory.getItem(i)
-            if (stack.item is UpgradeItem) {
-                (stack.item as UpgradeItem).upgrade(this)
-            }
-        }
-    }
+    fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
 
     override fun run() {
-        var context: Context
-        var root: ScriptableObject
-        synchronized(lockObject) {
-            check(valid && loaded && !running)
-            running = true
-            context = Context.enter()
-            botObject = BotImpl(abilities)
-            root = context.initStandardObjects().apply {
-                defineProperty("bot", botObject, ScriptableObject.CONST)
+        val context = Context.enter()
+        context.optimizationLevel = -1
+        scope = context.initStandardObjects().apply {
+            defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
+        }
+        if (serializedFrame.isEmpty()) {
+            val botScript = context.compileString(script, "Bot Code", 0, null)
+            try {
+                running = true
+                context.executeScriptWithContinuations(botScript, scope)
+            } catch (pending: ContinuationPending) {
+                val baos = ByteArrayOutputStream()
+                val sos = ScriptableOutputStream(baos, context.initStandardObjects())
+                sos.writeObject(pending.continuation)
+                sos.writeObject(scope)
+                serializedFrame = Base64.encodeBase64String(baos.toByteArray())
+            } catch (exception: Exception) {
+                if (exception is WrappedException && exception.wrappedException is InterruptedException) {
+                    // DO NOTHING
+                } else {
+                    exception.printStackTrace()
+                }
+            } finally {
+                running = false
+                Context.exit()
+            }
+        } else {
+            val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
+            val sis = ScriptableInputStream(bais, scope)
+            val continuation = sis.readObject()
+            scope = (sis.readObject() as ScriptableObject).apply {
+                defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
+            }
+            val pendingTask = pendingTask
+            if (pendingTask != null) {
+                running = true
+                val lockPair = pendingTask.second
+                lockPair.first.withLock {
+                    lockPair.second.await()
+                }
+            }
+            serializedFrame = try {
+                context.resumeContinuation(continuation, scope, null)
+                ""
+            } catch (pending: ContinuationPending) {
+                val baos = ByteArrayOutputStream()
+                val sos = ScriptableOutputStream(baos, context.initStandardObjects())
+                sos.writeObject(pending.continuation)
+                sos.writeObject(scope)
+                Base64.encodeBase64String(baos.toByteArray())
+            } catch (exception: Exception) {
+                if (exception is WrappedException && exception.wrappedException is InterruptedException) {
+                    // DO NOTHING
+                } else {
+                    exception.printStackTrace()
+                }
+                ""
+            } finally {
+                running = false
+                Context.exit()
             }
         }
-        try {
-            context.evaluateString(root, script, "bot_script", 1, null)
-        } catch (exception: Exception) {
-            entity.server!!.playerList.broadcastMessage(
-                net.minecraft.network.chat.TextComponent(
-                    exception.message ?: ""
-                ).withStyle(Style.EMPTY.withColor(ChatFormatting.RED)), ChatType.CHAT, Util.NIL_UUID
-            )
-        }
-        synchronized(lockObject) {
-            botObject = null
-            Context.exit()
-            running = false
+    }
+
+    fun tick() {
+        val result = pendingTask?.first?.tick()
+        val lockPair = pendingTask?.second
+        if (result == FutureResult.DONE) {
+            synchronized(this) { pendingTask = null }
+            lockPair?.first?.withLock {
+                lockPair.second.signalAll()
+            }
         }
     }
 
-    fun launch(): Future<*> {
-        resetState()
-        return EXECUTOR.submit(this)
-    }
-
-    /**
-     * The operations from the main thread
-     */
-    fun tick() = synchronized(lockObject) {
-        if(!valid) return
-        tasks.tick()
-    }
-
-    fun onRemove(reason: Throwable) = synchronized(lockObject) {
-        loaded = false
-        tasks.discard(reason)
-        if(running) {
-            botObject!!.tickable = false
+    fun remove() {
+        val lockPair = pendingTask?.second
+        lockPair?.first?.withLock {
+            lockPair.second.signalAll()
         }
-        valid = false
     }
 
-    fun onUnload() = synchronized(lockObject) {
-        loaded = false
+    fun removeBotFromScope() {
+        scope.delete("bot")
     }
 
-    fun onLoad() = synchronized(lockObject) {
-        loaded = true
-    }
-
-    fun requestDeactivate() {
-        if(forceDeactivating) return
-
-        if(deactivatePending) {
-            onRemove(ForceShutdown)
-            forceDeactivating = true
+    fun setPendingTask(newTask: TickableTask, newLock: ReentrantLock, newCondition: Condition) = synchronized(this) {
+        if (pendingTask == null) {
+            pendingTask = Pair(newTask, Pair(newLock, newCondition))
         } else {
-            deactivatePending = true
-            botObject!!.tickable = false
+            throw IllegalStateException()
         }
     }
 
-    fun resetState() {
-        deactivatePending = false
-        forceDeactivating = false
+    fun isFree(): Boolean = pendingTask == null
+
+    fun serialize() = CompoundTag().apply {
+        putString("script", script)
+        putString("serializedFrame", serializedFrame)
+        putString("pendingTask", pendingTask?.first?.id.orEmpty())
+        pendingTask?.first?.serialize()?.let { put("task", it) }
+    }
+
+    fun deserialize(compound: CompoundTag) = synchronized(this) {
+        script = compound.getString("script")
+        serializedFrame = compound.getString("serializedFrame")
+        val pendingTaskId = compound.getString("pendingTask")
+        if (pendingTaskId.isNotEmpty()) {
+            val task = TaskRegistry.constructTask(pendingTaskId, this)!!
+            task.deserialize(compound.get("task")!!)
+            val lock = ReentrantLock()
+            pendingTask = Pair(task, Pair(lock, lock.newCondition()))
+        }
     }
 
     companion object {
-        val ALL_ENVS: MutableSet<BotEnv> = HashSet()
-        val BOT_THREAD_ID = AtomicInteger(0)
-        lateinit var EXECUTOR: ExecutorService
-        var accept = false
-        fun onServerStopping(event: ServerStoppingEvent) {
-            accept = false
-
-            ALL_ENVS.iterator().apply {
-                while(hasNext()) {
-                    next().onRemove(ServerShutdown)
-                    remove()
-                }
-            }
-
-            if (EXECUTOR.awaitTermination(5000, TimeUnit.MILLISECONDS)) {
-                println("Some bots are still running. Shutting down forcibly...")
-                EXECUTOR.shutdownNow()
-            }
-        }
-
-        fun onServerStarting(event: ServerStartingEvent) {
-            accept = true
-            EXECUTOR = Executors.newCachedThreadPool { Thread(it, "BotJS-BotThread-"+ BOT_THREAD_ID.getAndIncrement()) }
+        private val BOT_THREAD_ID = AtomicInteger(0)
+        val EXECUTOR_SERVICE: ExecutorService = Executors.newCachedThreadPool {
+            Thread(it, "BotJS-BotThread-${BOT_THREAD_ID.getAndIncrement()}")
         }
     }
+
 }

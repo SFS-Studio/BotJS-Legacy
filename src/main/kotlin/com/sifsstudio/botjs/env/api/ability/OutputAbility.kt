@@ -29,7 +29,7 @@ class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) 
     }
 }
 
-class SpeakTask(private var content: String, private val environment: BotEnv) : TickableTask {
+class SpeakTask(private var content: String, private val environment: BotEnv) : TickableTask<Unit> {
     companion object {
         const val ID = "speak"
     }
@@ -39,13 +39,13 @@ class SpeakTask(private var content: String, private val environment: BotEnv) : 
 
     override val id = ID
 
-    override fun tick(): FutureResult {
+    override fun tick(): FutureResult<Unit> {
         environment.entity.level.server!!.playerList.broadcastMessage(
             TextComponent(content),
             ChatType.CHAT,
             Util.NIL_UUID
         )
-        return FutureResult.DONE
+        return FutureResult.done(Unit)
     }
 
     override fun serialize(): Tag = content.asStringTag()

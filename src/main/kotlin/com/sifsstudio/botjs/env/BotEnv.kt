@@ -4,6 +4,8 @@ import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import net.minecraft.nbt.CompoundTag
+import net.minecraftforge.event.server.ServerAboutToStartEvent
+import net.minecraftforge.event.server.ServerStoppedEvent
 import org.apache.commons.codec.binary.Base64
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContinuationPending
@@ -15,6 +17,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
@@ -25,12 +28,14 @@ class BotEnv(val entity: BotEntity) : Runnable {
     var script = ""
     var running = false
         private set
-    private var pendingTask: Pair<TickableTask, Pair<ReentrantLock, Condition>>? = null
+    private var pendingTask: Pair<TickableTask<*>, Pair<ReentrantLock, Condition>>? = null
+    var lastPendingTaskResult: Any? = null
     private lateinit var scope: ScriptableObject
     private var abilities: MutableMap<String, AbilityBase> = mutableMapOf()
     var serializedFrame = ""
 
     fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
+    fun clearAbility() = abilities.clear()
 
     override fun run() {
         val context = Context.enter()
@@ -39,8 +44,8 @@ class BotEnv(val entity: BotEntity) : Runnable {
             defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
         }
         if (serializedFrame.isEmpty()) {
-            val botScript = context.compileString(script, "Bot Code", 0, null)
             try {
+                val botScript = context.compileString(script, "Bot Code", 0, null)
                 running = true
                 context.executeScriptWithContinuations(botScript, scope)
             } catch (pending: ContinuationPending) {
@@ -55,6 +60,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 } else {
                     exception.printStackTrace()
                 }
+                synchronized(this) { pendingTask = null }
             } finally {
                 running = false
                 Context.exit()
@@ -66,16 +72,16 @@ class BotEnv(val entity: BotEntity) : Runnable {
             scope = (sis.readObject() as ScriptableObject).apply {
                 defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
             }
-            val pendingTask = pendingTask
-            if (pendingTask != null) {
-                running = true
-                val lockPair = pendingTask.second
-                lockPair.first.withLock {
-                    lockPair.second.await()
-                }
-            }
             serializedFrame = try {
-                context.resumeContinuation(continuation, scope, null)
+                val pendingTask = pendingTask
+                if (pendingTask != null) {
+                    running = true
+                    val lockPair = pendingTask.second
+                    lockPair.first.withLock {
+                        lockPair.second.await()
+                    }
+                }
+                context.resumeContinuation(continuation, scope, lastPendingTaskResult)
                 ""
             } catch (pending: ContinuationPending) {
                 val baos = ByteArrayOutputStream()
@@ -84,11 +90,12 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 sos.writeObject(scope)
                 Base64.encodeBase64String(baos.toByteArray())
             } catch (exception: Exception) {
-                if (exception is WrappedException && exception.wrappedException is InterruptedException) {
+                if ((exception is WrappedException && exception.wrappedException is InterruptedException) || exception is InterruptedException) {
                     // DO NOTHING
                 } else {
                     exception.printStackTrace()
                 }
+                synchronized(this) { this.pendingTask = null }
                 ""
             } finally {
                 running = false
@@ -100,10 +107,15 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun tick() {
         val result = pendingTask?.first?.tick()
         val lockPair = pendingTask?.second
-        if (result == FutureResult.DONE) {
-            synchronized(this) { pendingTask = null }
-            lockPair?.first?.withLock {
-                lockPair.second.signalAll()
+        if (result != null) {
+            if (result.isDone) {
+                synchronized(this) {
+                    lastPendingTaskResult = result.result
+                    pendingTask = null
+                }
+                lockPair?.first?.withLock {
+                    lockPair.second.signalAll()
+                }
             }
         }
     }
@@ -119,7 +131,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         scope.delete("bot")
     }
 
-    fun setPendingTask(newTask: TickableTask, newLock: ReentrantLock, newCondition: Condition) = synchronized(this) {
+    fun setPendingTask(newTask: TickableTask<*>, newLock: ReentrantLock, newCondition: Condition) = synchronized(this) {
         if (pendingTask == null) {
             pendingTask = Pair(newTask, Pair(newLock, newCondition))
         } else {
@@ -150,8 +162,19 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     companion object {
         private val BOT_THREAD_ID = AtomicInteger(0)
-        val EXECUTOR_SERVICE: ExecutorService = Executors.newCachedThreadPool {
-            Thread(it, "BotJS-BotThread-${BOT_THREAD_ID.getAndIncrement()}")
+        var EXECUTOR_SERVICE: ExecutorService? = null
+
+        fun onServerSetup(@Suppress("UNUSED_PARAMETER") event: ServerAboutToStartEvent) {
+            EXECUTOR_SERVICE = Executors.newCachedThreadPool {
+                Thread(it, "BotJS-BotThread-${BOT_THREAD_ID.getAndIncrement()}")
+            }
+        }
+
+        fun onServerStop(@Suppress("UNUSED_PARAMETER") event: ServerStoppedEvent) {
+            EXECUTOR_SERVICE!!.awaitTermination(500, TimeUnit.MILLISECONDS)
+            EXECUTOR_SERVICE!!.shutdownNow()
+            BOT_THREAD_ID.set(0)
+            EXECUTOR_SERVICE = null
         }
     }
 

@@ -3,6 +3,8 @@ package com.sifsstudio.botjs.env.api.ability
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.FutureResult
 import com.sifsstudio.botjs.env.TickableTask
+import net.minecraft.commands.arguments.EntityAnchorArgument
+import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.Vec3
@@ -11,49 +13,66 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
     override val id = "movement"
 
     @Suppress("unused")
-    fun moveTo(x: Double, z: Double) {
-        setPendingTaskAndWait(DestinationMovementTask(x, z, environment))
-    }
-}
-
-class DestinationMovementTask(private var x: Double, private var z: Double, private val environment: BotEnv) :
-    TickableTask {
-    companion object {
-        const val ID = "destination_movement"
-        const val moveSpeed = 0.1
-        const val moveSpeedSq = moveSpeed * moveSpeed
+    fun moveTo(x: Double, y: Double, z: Double): Boolean {
+        return setPendingTaskAndWait(DestinationMovementTask(x, y, z, environment))
     }
 
     @Suppress("unused")
-    constructor(environment: BotEnv) : this(0.0, 0.0, environment)
+    fun lookAt(x: Double, y: Double, z: Double) {
+        environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
+        environment.entity.lookControl.setLookAt(x, y, z)
+        setPendingTaskAndWait(SleepTask(2))
+    }
+}
+
+class DestinationMovementTask(
+    private var x: Double,
+    private var y: Double,
+    private var z: Double,
+    private val environment: BotEnv
+) :
+    TickableTask<Boolean> {
+    companion object {
+        const val ID = "destination_movement"
+        const val MOVE_SPEED = 0.5
+    }
+
+    @Suppress("unused")
+    constructor(environment: BotEnv) : this(0.0, 0.0, 0.0, environment)
+
+    private var isInTask = false
 
     override val id = ID
 
-    override fun tick(): FutureResult {
-        val normal = Vec3(x - environment.entity.x, 0.0, z - environment.entity.z).normalize()
-        val distanceSq = environment.entity.distanceToSqr(x, environment.entity.y, z)
-        val movementSq = if (distanceSq >= moveSpeedSq) {
-            environment.entity.deltaMovement = normal.scale(moveSpeed)
-            moveSpeedSq
-        } else {
-            environment.entity.deltaMovement = normal.scale(kotlin.math.sqrt(distanceSq))
-            distanceSq
+    override fun tick(): FutureResult<Boolean> {
+        // FIXME
+        if (environment.entity.onPos.distManhattan(BlockPos(x, y, z)) <= 1) {
+            return FutureResult.done(true)
         }
-        return if (distanceSq - movementSq < 1E-14) {
-            FutureResult.DONE
+        val nav = environment.entity.navigation
+        if (!isInTask) {
+            if (!nav.moveTo(x, y, z, MOVE_SPEED) || nav.isStuck) {
+                return FutureResult.done(false)
+            }
+            isInTask = true
+        }
+        return if (nav.isDone) {
+            FutureResult.done(true)
         } else {
-            FutureResult.PENDING
+            FutureResult.pending()
         }
     }
 
     override fun serialize() = CompoundTag().apply {
         putDouble("x", x)
+        putDouble("y", y)
         putDouble("z", z)
     }
 
     override fun deserialize(tag: Tag) {
         val compound = tag as CompoundTag
         x = compound.getDouble("x")
+        y = compound.getDouble("y")
         z = compound.getDouble("z")
     }
 }

@@ -21,17 +21,25 @@ import net.minecraft.world.SimpleMenuProvider
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.HumanoidArm
-import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.Mob
+import net.minecraft.world.entity.ai.control.LookControl
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.network.PacketDistributor
 import java.util.concurrent.Future
 
-class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, level) {
+class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
+
+    init {
+        lookControl = object : LookControl(this) {
+            override fun resetXRotOnTick() = false
+        }
+    }
 
     private val inventory: SimpleContainer = SimpleContainer(9).apply {
         addListener {
+            environment.clearAbility()
             for (i in 0 until it.containerSize) {
                 val itemStack = it.getItem(i)
                 if (itemStack != ItemStack.EMPTY && itemStack.item is UpgradeItem) {
@@ -50,6 +58,9 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
     override fun getItemBySlot(pSlot: EquipmentSlot): ItemStack = ItemStack.EMPTY
 
     override fun getMainArm(): HumanoidArm = HumanoidArm.RIGHT
+
+    override fun getMaxHeadXRot() = 90
+    override fun getMaxHeadYRot() = 180
 
     override fun addAdditionalSaveData(pCompound: CompoundTag) {
         super.addAdditionalSaveData(pCompound)
@@ -72,7 +83,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
         super.onAddedToWorld()
         if (!this.level.isClientSide) {
             if (environment.serializedFrame.isNotEmpty()) {
-                currentRunFuture = EXECUTOR_SERVICE.submit(environment)
+                currentRunFuture = EXECUTOR_SERVICE!!.submit(environment)
             }
         }
     }
@@ -91,7 +102,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
         }
     }
 
-    override fun interact(pPlayer: Player, pHand: InteractionHand): InteractionResult {
+    override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {
         if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && !environment.running) {
             if (!this.level.isClientSide) {
                 pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
@@ -114,7 +125,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
                 if (!environment.running) {
-                    currentRunFuture = EXECUTOR_SERVICE.submit(environment)
+                    currentRunFuture = EXECUTOR_SERVICE!!.submit(environment)
                 } else {
                     if (this::currentRunFuture.isInitialized) {
                         currentRunFuture.cancel(true)
@@ -126,6 +137,6 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : LivingEntity(type, 
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         }
-        return super.interact(pPlayer, pHand)
+        return super.mobInteract(pPlayer, pHand)
     }
 }

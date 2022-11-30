@@ -9,7 +9,7 @@ import kotlin.concurrent.withLock
 abstract class AbilityBase(private val environment: BotEnv) {
     abstract val id: String
 
-    fun setPendingTaskAndWait(task: TickableTask) {
+    protected fun <T : Any> setPendingTaskAndWait(task: TickableTask<T>): T {
         val reentrantLock = ReentrantLock()
         val condition = reentrantLock.newCondition()
         environment.setPendingTask(task, reentrantLock, condition)
@@ -22,5 +22,7 @@ abstract class AbilityBase(private val environment: BotEnv) {
                 throw pending
             }
         }
+        @Suppress("UNCHECKED_CAST")
+        return environment.lastPendingTaskResult!! as T
     }
 }

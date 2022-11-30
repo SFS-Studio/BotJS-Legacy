@@ -19,7 +19,7 @@ class TimingAbility(environment: BotEnv) : AbilityBase(environment) {
     }
 }
 
-class SleepTask(private var ticks: Int) : TickableTask {
+class SleepTask(private var ticks: Int) : TickableTask<Unit> {
 
     @Suppress("unused", "UNUSED_PARAMETER")
     constructor(environment: BotEnv) : this(0)
@@ -30,12 +30,12 @@ class SleepTask(private var ticks: Int) : TickableTask {
 
     override val id = ID
 
-    override fun tick(): FutureResult {
+    override fun tick(): FutureResult<Unit> {
         ticks--
         return if (ticks <= 0) {
-            FutureResult.DONE
+            FutureResult.done(Unit)
         } else {
-            FutureResult.PENDING
+            FutureResult.pending()
         }
     }
 

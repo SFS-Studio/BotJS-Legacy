@@ -3,34 +3,34 @@ package com.sifsstudio.botjs.env.api.storage;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public sealed interface Path extends Comparable<Path>, Iterable<Path> permits PathWrapper {
-    BotStorage getStorage();
-    Path getFileName();
-    Path getParent();
+public sealed interface Path<T extends BotStorage<T>> extends Comparable<Path<T>>, Iterable<Path<T>> permits PathWrapper {
+    T getStorage();
+    Path<T> getFileName();
+    Path<T> getParent();
     int getNameCount();
-    Path getName(int index);
-    boolean startsWith(Path other);
+    Path<T> getName(int index);
+    boolean startsWith(Path<T> other);
     default boolean startsWith(String other) {
         return startsWith(getStorage().of(other));
     }
-    boolean endsWith(Path other);
+    boolean endsWith(Path<T> other);
     default boolean endsWith(String other) {
         return endsWith(getStorage().of(other));
     }
-    Path normalize();
-    Path resolve(Path other);
-    default Path resolveSibling(Path other) {
+    Path<T> normalize();
+    Path<T> resolve(Path<T> other);
+    default Path<T> resolveSibling(Path<T> other) {
         if (other == null)
             throw new NullPointerException();
-        Path parent = getParent();
+        Path<T> parent = getParent();
         return (parent == null) ? other : parent.resolve(other);
     }
-    default Path resolveSibling(String other) {
+    default Path<T> resolveSibling(String other) {
         return resolveSibling(getStorage().of(other));
     }
-    Path relativize(Path other);
+    Path<T> relativize(Path<T> other);
 
-    default Iterator<Path> iterator() {
+    default Iterator<Path<T>> iterator() {
         return new Iterator<>() {
             private int i = 0;
 
@@ -40,9 +40,9 @@ public sealed interface Path extends Comparable<Path>, Iterable<Path> permits Pa
             }
 
             @Override
-            public Path next() {
+            public Path<T> next() {
                 if (i < getNameCount()) {
-                    Path result = getName(i);
+                    Path<T> result = getName(i);
                     i++;
                     return result;
                 } else {
@@ -53,7 +53,7 @@ public sealed interface Path extends Comparable<Path>, Iterable<Path> permits Pa
     }
 
     @Override
-    int compareTo(Path other);
+    int compareTo(Path<T> other);
     boolean equals(Object other);
     int hashCode();
 }

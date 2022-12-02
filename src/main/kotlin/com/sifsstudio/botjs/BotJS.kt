@@ -23,6 +23,8 @@ object BotJS {
         NetworkManager.registerPackets()
         MOD_BUS.addListener(this::setupClient)
         FORGE_BUS.addListener(BotEnv.Companion::onServerStopping)
+        FORGE_BUS.addListener(BotEnv.Companion::onServerStarting)
+        FORGE_BUS.addListener(BotEnv.Companion::onTick)
     }
 
     private fun setupClient(event: FMLClientSetupEvent) = event.enqueueWork {

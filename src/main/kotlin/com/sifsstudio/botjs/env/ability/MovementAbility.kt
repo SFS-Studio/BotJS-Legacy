@@ -13,7 +13,7 @@ class MovementAbility : AbilityBase() {
     fun moveTo(x: Double, z: Double): MoveResult { return env.pending(MovementTask(x, z)).joinOrThrow() }
 
     @Suppress("unused")
-    fun moveToAsync(x: Double, z: Double): com.sifsstudio.botjs.env.api.FutureHandle<MoveResult> { return com.sifsstudio.botjs.env.api.FutureHandle(env.pending(MovementTask(x, z)))
+    fun moveToAsync(x: Double, z: Double): com.sifsstudio.botjs.env.api.FutureHandleImpl<MoveResult> { return com.sifsstudio.botjs.env.api.FutureHandleImpl(env.pending(MovementTask(x, z)))
     }
 
     @Suppress("unused")
@@ -24,9 +24,9 @@ class MovementAbility : AbilityBase() {
     }
 
     @Suppress("unused")
-    fun moveAsync(direction: Direction, distance: Double): com.sifsstudio.botjs.env.api.FutureHandle<MoveResult> {
+    fun moveAsync(direction: Direction, distance: Double): com.sifsstudio.botjs.env.api.FutureHandleImpl<MoveResult> {
         check(distance >= 0)
-        return com.sifsstudio.botjs.env.api.FutureHandle(
+        return com.sifsstudio.botjs.env.api.FutureHandleImpl(
             if(distance > 1E-7) env.pending(DirectionalMovementTask(direction, distance))
             else TaskFuture.successFuture(successResult)
         )

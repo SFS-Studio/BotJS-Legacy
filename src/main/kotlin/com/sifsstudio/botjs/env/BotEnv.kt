@@ -9,13 +9,17 @@ import com.sifsstudio.botjs.env.task.Task
 import com.sifsstudio.botjs.env.task.TaskManager
 import com.sifsstudio.botjs.item.UpgradeItem
 import dev.latvian.mods.rhino.Context
+import dev.latvian.mods.rhino.NativeFunction
+import dev.latvian.mods.rhino.Script
 import dev.latvian.mods.rhino.ScriptableObject
+import kotlinx.coroutines.channels.ticker
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.Style
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraftforge.event.TickEvent
 import net.minecraftforge.event.server.ServerStartingEvent
 import net.minecraftforge.event.server.ServerStoppingEvent
 import java.util.concurrent.*
@@ -116,9 +120,9 @@ class BotEnv(val entity: BotEntity) : Runnable {
             check(valid && loaded && !running)
             running = true
             context = Context.enter()
-            botObject = BotImpl(abilities)
+            botObject = BotImpl(abilities, entity.uuid)
             root = context.initStandardObjects().apply {
-                defineProperty("bot", botObject, ScriptableObject.CONST)
+                defineProperty("bot", botObject, ScriptableObject.CONST and ScriptableObject.PERMANENT)
             }
         }
         try {
@@ -186,7 +190,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     companion object {
         val ALL_ENVS: MutableSet<BotEnv> = HashSet()
-        val BOT_THREAD_ID = AtomicInteger(0)
+        private val BOT_THREAD_ID = AtomicInteger(0)
         lateinit var EXECUTOR: ExecutorService
         var accept = false
         fun onServerStopping(event: ServerStoppingEvent) {
@@ -208,6 +212,13 @@ class BotEnv(val entity: BotEntity) : Runnable {
         fun onServerStarting(event: ServerStartingEvent) {
             accept = true
             EXECUTOR = Executors.newCachedThreadPool { Thread(it, "BotJS-BotThread-"+ BOT_THREAD_ID.getAndIncrement()) }
+
+        }
+
+        fun onTick(event: TickEvent.ServerTickEvent) {
+            if(event.phase == TickEvent.Phase.START) {
+                TickSynchronizer.tick()
+            }
         }
     }
 }

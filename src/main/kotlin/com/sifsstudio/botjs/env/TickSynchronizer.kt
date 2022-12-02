@@ -6,12 +6,11 @@ object TickSynchronizer {
 
     init {
         LockSupport::class.java
-        NotificationThread.start()
     }
 
     private const val lock = "BotJS TickSynchronizer Lock"
     private var unpark = false
-    private var ticking = true
+    private var ticking = false
     private var waiting: MutableSet<Thread> = HashSet()
 
     fun await(): Boolean {
@@ -40,6 +39,7 @@ object TickSynchronizer {
     }
 
     fun enable() {
+        ticking = true
         NotificationThread.start()
     }
 
@@ -55,7 +55,7 @@ object TickSynchronizer {
         var unpark = false
 
         override fun run() {
-            while (!isInterrupted) {
+            while (!isInterrupted && ticking) {
                 while (!unpark) {
                     LockSupport.park(lock)
                     if (isInterrupted) {

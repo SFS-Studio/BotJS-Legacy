@@ -4,7 +4,6 @@ import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.FutureResult
 import com.sifsstudio.botjs.env.TickableTask
 import net.minecraft.commands.arguments.EntityAnchorArgument
-import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.Vec3
@@ -40,23 +39,20 @@ class DestinationMovementTask(
     @Suppress("unused")
     constructor(environment: BotEnv) : this(0.0, 0.0, 0.0, environment)
 
-    private var isInTask = false
-
     override val id = ID
 
     override fun tick(): FutureResult<Boolean> {
         // FIXME
-        if (environment.entity.onPos.distManhattan(BlockPos(x, y, z)) <= 1) {
+        if (environment.entity.position().distanceToSqr(x, y, z) <= 0.5) {
+            environment.entity.navigation.stop()
             return FutureResult.done(true)
         }
         val nav = environment.entity.navigation
-        if (!isInTask) {
-            if (!nav.moveTo(x, y, z, MOVE_SPEED) || nav.isStuck) {
-                return FutureResult.done(false)
-            }
-            isInTask = true
+        if (!nav.moveTo(x, y, z, MOVE_SPEED) || nav.isStuck) {
+            return FutureResult.done(false)
         }
         return if (nav.isDone) {
+            environment.entity.navigation.stop()
             FutureResult.done(true)
         } else {
             FutureResult.pending()

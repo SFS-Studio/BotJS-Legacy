@@ -3,6 +3,7 @@ package com.sifsstudio.botjs.env.api.ability
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.FutureResult
 import com.sifsstudio.botjs.env.TickableTask
+import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
 import com.sifsstudio.botjs.util.extinguishFire
 import com.sifsstudio.botjs.util.plus
 import com.sifsstudio.botjs.util.times
@@ -24,6 +25,20 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
     @Suppress("unused")
     fun breakBlock(x: Double, y: Double, z: Double): Boolean {
         return setPendingTaskAndWait(BreakBlockTask(BlockPos(x, y, z), environment))
+    }
+
+    @Suppress("unused")
+    fun attack(entity: WrappedEntity) {
+        val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
+        fakePlayer.setPos(environment.entity.position())
+        fakePlayer.attack(entity.entity)
+    }
+
+    @Suppress("unused")
+    fun sweepAttack() {
+        val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
+        fakePlayer.setPos(environment.entity.position())
+        fakePlayer.sweepAttack()
     }
 }
 

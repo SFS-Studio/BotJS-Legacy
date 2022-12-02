@@ -41,7 +41,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         val context = Context.enter()
         context.optimizationLevel = -1
         scope = context.initStandardObjects().apply {
-            defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
+            defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
         }
         if (serializedFrame.isEmpty()) {
             try {
@@ -70,7 +70,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
             val sis = ScriptableInputStream(bais, scope)
             val continuation = sis.readObject()
             scope = (sis.readObject() as ScriptableObject).apply {
-                defineProperty("bot", Bot(abilities), ScriptableObject.READONLY)
+                defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
             }
             serializedFrame = try {
                 val pendingTask = pendingTask

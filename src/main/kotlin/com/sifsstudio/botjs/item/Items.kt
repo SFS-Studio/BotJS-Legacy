@@ -1,10 +1,7 @@
 package com.sifsstudio.botjs.item
 
 import com.sifsstudio.botjs.BotJS
-import com.sifsstudio.botjs.env.api.ability.InteractionAbility
-import com.sifsstudio.botjs.env.api.ability.MovementAbility
-import com.sifsstudio.botjs.env.api.ability.OutputAbility
-import com.sifsstudio.botjs.env.api.ability.TimingAbility
+import com.sifsstudio.botjs.env.api.ability.*
 import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -32,6 +29,9 @@ object Items {
 
     val INTERACTION_UPGRADE: Item
             by REGISTRY.registerObject("interaction_upgrade") { UpgradeItem.withAbility { InteractionAbility(it) } }
+
+    val SENSING_UPGRADE: Item
+            by REGISTRY.registerObject("sensing_upgrade") { UpgradeItem.withAbility { SensingAbility(it) } }
 
     val WRENCH: Item
             by REGISTRY.registerObject("wrench") {

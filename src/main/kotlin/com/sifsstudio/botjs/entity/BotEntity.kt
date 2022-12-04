@@ -100,6 +100,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         if (!this.level.isClientSide) {
             environment.remove()
         }
+        environment.ticking = false
     }
 
     override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {

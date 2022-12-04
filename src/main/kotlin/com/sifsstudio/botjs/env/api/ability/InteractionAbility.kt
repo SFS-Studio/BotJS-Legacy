@@ -1,7 +1,8 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.FutureResult
+import com.sifsstudio.botjs.env.PollResult
+import com.sifsstudio.botjs.env.TaskFuture
 import com.sifsstudio.botjs.env.TickableTask
 import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
 import com.sifsstudio.botjs.util.extinguishFire
@@ -23,8 +24,8 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
     override val id = "interaction"
 
     @Suppress("unused")
-    fun breakBlock(x: Double, y: Double, z: Double): Boolean {
-        return setPendingTaskAndWait(BreakBlockTask(BlockPos(x, y, z), environment))
+    fun breakBlock(x: Double, y: Double, z: Double): TaskFuture {
+        return submit(BreakBlockTask(BlockPos(x, y, z), environment))
     }
 
     @Suppress("unused")
@@ -55,7 +56,7 @@ class BreakBlockTask(private var pos: BlockPos, private val environment: BotEnv)
 
     override val id = ID
 
-    override fun tick(): FutureResult<Boolean> {
+    override fun tick(): PollResult<Boolean> {
         val level = environment.entity.level as ServerLevel
         if (!this::fakePlayer.isInitialized) {
             fakePlayer = FakePlayerFactory.getMinecraft(level)
@@ -70,22 +71,22 @@ class BreakBlockTask(private var pos: BlockPos, private val environment: BotEnv)
         val hitResult = level.clip(rayContext)
         val blockPos = hitResult.blockPos
         if (!blockPos.equals(pos)) {
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         fakePlayer.setPos(environment.entity.position())
         if (!level.mayInteract(fakePlayer, blockPos)) {
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         val destroyState = level.getBlockState(blockPos)
         if (destroyState.getShape(level, blockPos).isEmpty) {
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         val event = ForgeHooks.onLeftClickBlock(fakePlayer, blockPos, hitResult.direction)
         if (event.isCanceled) {
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         if (level.extinguishFire(fakePlayer, blockPos, hitResult.direction)) {
-            return FutureResult.done(true)
+            return PollResult.done(true)
         }
         if (event.useBlock != Event.Result.DENY) {
             destroyState.attack(level, blockPos, fakePlayer)
@@ -98,17 +99,17 @@ class BreakBlockTask(private var pos: BlockPos, private val environment: BotEnv)
             fakePlayer.gameMode.destroyBlock(blockPos)
             level.destroyBlockProgress(fakePlayer.id, blockPos, -1)
             breakBlockProgress = 0.0f
-            return FutureResult.done(true)
+            return PollResult.done(true)
         }
         if (progress <= 0) {
             breakBlockProgress = 0.0f
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         if ((before * 10).toInt() != (progress * 10).toInt()) {
             level.destroyBlockProgress(fakePlayer.id, blockPos, (progress * 10).toInt())
         }
         breakBlockProgress = progress
-        return FutureResult.pending()
+        return PollResult.pending()
     }
 
     override fun serialize(): Tag = CompoundTag().apply {

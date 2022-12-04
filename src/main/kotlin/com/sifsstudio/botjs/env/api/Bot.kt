@@ -1,6 +1,7 @@
 package com.sifsstudio.botjs.env.api
 
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.TaskFuture
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 
 class Bot(private val environment: BotEnv, @Suppress("unused") val abilities: Map<String, AbilityBase>) {
@@ -15,4 +16,8 @@ class Bot(private val environment: BotEnv, @Suppress("unused") val abilities: Ma
     @Suppress("unused")
     val z
         get() = environment.entity.z
+
+    fun block(future: TaskFuture) {
+        environment.block<Any>(future)
+    }
 }

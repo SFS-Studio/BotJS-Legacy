@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.FutureResult
+import com.sifsstudio.botjs.env.PollResult
 import com.sifsstudio.botjs.env.TickableTask
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
@@ -12,7 +12,7 @@ class TimingAbility(environment: BotEnv) : AbilityBase(environment) {
     @Suppress("unused")
     fun sleep(ticks: Int) {
         if (ticks >= 1) {
-            setPendingTaskAndWait(SleepTask(ticks))
+            block(SleepTask(ticks))
         } else {
             return
         }
@@ -30,12 +30,12 @@ class SleepTask(private var ticks: Int) : TickableTask<Unit> {
 
     override val id = ID
 
-    override fun tick(): FutureResult<Unit> {
+    override fun tick(): PollResult<Unit> {
         ticks--
         return if (ticks <= 0) {
-            FutureResult.done(Unit)
+            PollResult.done(Unit)
         } else {
-            FutureResult.pending()
+            PollResult.pending()
         }
     }
 

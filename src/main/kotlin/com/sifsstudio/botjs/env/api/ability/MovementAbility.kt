@@ -1,7 +1,8 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.FutureResult
+import com.sifsstudio.botjs.env.PollResult
+import com.sifsstudio.botjs.env.TaskFuture
 import com.sifsstudio.botjs.env.TickableTask
 import net.minecraft.commands.arguments.EntityAnchorArgument
 import net.minecraft.nbt.CompoundTag
@@ -12,15 +13,15 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
     override val id = "movement"
 
     @Suppress("unused")
-    fun moveTo(x: Double, y: Double, z: Double): Boolean {
-        return setPendingTaskAndWait(DestinationMovementTask(x, y, z, environment))
+    fun moveTo(x: Double, y: Double, z: Double): TaskFuture {
+        return submit(DestinationMovementTask(x, y, z, environment))
     }
 
     @Suppress("unused")
     fun lookAt(x: Double, y: Double, z: Double) {
         environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
         environment.entity.lookControl.setLookAt(x, y, z)
-        setPendingTaskAndWait(SleepTask(2))
+        submit(SleepTask(2))
     }
 }
 
@@ -41,21 +42,21 @@ class DestinationMovementTask(
 
     override val id = ID
 
-    override fun tick(): FutureResult<Boolean> {
+    override fun tick(): PollResult<Boolean> {
         // FIXME
         if (environment.entity.position().distanceToSqr(x, y, z) <= 0.5) {
             environment.entity.navigation.stop()
-            return FutureResult.done(true)
+            return PollResult.done(true)
         }
         val nav = environment.entity.navigation
         if (!nav.moveTo(x, y, z, MOVE_SPEED) || nav.isStuck) {
-            return FutureResult.done(false)
+            return PollResult.done(false)
         }
         return if (nav.isDone) {
             environment.entity.navigation.stop()
-            FutureResult.done(true)
+            PollResult.done(true)
         } else {
-            FutureResult.pending()
+            PollResult.pending()
         }
     }
 

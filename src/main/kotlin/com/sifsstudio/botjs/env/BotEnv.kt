@@ -4,13 +4,11 @@ import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
 import org.apache.commons.codec.binary.Base64
-import org.mozilla.javascript.Context
-import org.mozilla.javascript.ContinuationPending
-import org.mozilla.javascript.ScriptableObject
-import org.mozilla.javascript.WrappedException
+import org.mozilla.javascript.*
 import org.mozilla.javascript.serialize.ScriptableInputStream
 import org.mozilla.javascript.serialize.ScriptableOutputStream
 import java.io.ByteArrayInputStream
@@ -19,19 +17,18 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.Condition
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 class BotEnv(val entity: BotEntity) : Runnable {
 
     var script = ""
     var running = false
         private set
-    private var pendingTask: Pair<TickableTask<*>, Pair<ReentrantLock, Condition>>? = null
+    var ticking = false
+    private val tickingTasks: MutableSet<TaskFuture> = mutableSetOf()
+    private var pendingTask: TaskFuture? = null
     var lastPendingTaskResult: Any? = null
     private lateinit var scope: ScriptableObject
-    private var abilities: MutableMap<String, AbilityBase> = mutableMapOf()
+    private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
     var serializedFrame = ""
 
     fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
@@ -73,22 +70,20 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
             }
             serializedFrame = try {
-                val pendingTask = pendingTask
-                if (pendingTask != null) {
-                    running = true
-                    val lockPair = pendingTask.second
-                    lockPair.first.withLock {
-                        lockPair.second.await()
+                synchronized(this) {
+                    val pendingTask = pendingTask
+                    if (pendingTask != null) {
+                        running = true
+                        if (!blockNoCapture(pendingTask)) {
+                            toSerializedFrame(context, continuation)
+                            return
+                        }
                     }
                 }
                 context.resumeContinuation(continuation, scope, lastPendingTaskResult)
                 ""
             } catch (pending: ContinuationPending) {
-                val baos = ByteArrayOutputStream()
-                val sos = ScriptableOutputStream(baos, context.initStandardObjects())
-                sos.writeObject(pending.continuation)
-                sos.writeObject(scope)
-                Base64.encodeBase64String(baos.toByteArray())
+                toSerializedFrame(context, pending.continuation)
             } catch (exception: Exception) {
                 if ((exception is WrappedException && exception.wrappedException is InterruptedException) || exception is InterruptedException) {
                     // DO NOTHING
@@ -104,26 +99,33 @@ class BotEnv(val entity: BotEntity) : Runnable {
         }
     }
 
+    @Synchronized
     fun tick() {
-        val result = pendingTask?.first?.tick()
-        val lockPair = pendingTask?.second
-        if (result != null) {
+        ticking = true
+        tickingTasks.iterator().run {
+            while (hasNext()) {
+                val now = next()
+                val result = now.task.tick()
+                if (result.isDone) {
+                    now.done(result.result!!)
+                    remove()
+                }
+            }
+        }
+        if (pendingTask != null) {
+            check(pendingTask != null)
+            val result = pendingTask!!.task.tick()
             if (result.isDone) {
-                synchronized(this) {
-                    lastPendingTaskResult = result.result
-                    pendingTask = null
-                }
-                lockPair?.first?.withLock {
-                    lockPair.second.signalAll()
-                }
+                pendingTask!!.done(result.result!!)
+                pendingTask = null
             }
         }
     }
 
+    @Synchronized
     fun remove() {
-        val lockPair = pendingTask?.second
-        lockPair?.first?.withLock {
-            lockPair.second.signalAll()
+        if (pendingTask != null) {
+            pendingTask!!.suspend()
         }
     }
 
@@ -131,32 +133,72 @@ class BotEnv(val entity: BotEntity) : Runnable {
         scope.delete("bot")
     }
 
-    fun setPendingTask(newTask: TickableTask<*>, newLock: ReentrantLock, newCondition: Condition) = synchronized(this) {
-        if (pendingTask == null) {
-            pendingTask = Pair(newTask, Pair(newLock, newCondition))
-        } else {
-            throw IllegalStateException()
+    @Synchronized
+    fun <T : Any> submit(task: TickableTask<T>): TaskFuture {
+        val result = TaskFuture(task)
+        tickingTasks.add(result)
+        if(!ticking) {
+            suspendExecution()
         }
+        return result
     }
 
-    fun isFree(): Boolean = pendingTask == null
+    @Synchronized
+    fun <T : Any> block(future: TaskFuture): T {
+        check(tickingTasks.remove(future))
+        pendingTask = future
+        val res = future.join<T>()
+        if (!res.isDone) {
+            suspendExecution()
+        }
+        return res.result!!
+    }
 
+    @Synchronized
+    private fun blockNoCapture(future: TaskFuture): Boolean {
+        pendingTask = future
+        val pResult = future.join<Any>()
+        return pResult.isDone
+    }
+
+    @Synchronized
+    private fun suspendExecution() {
+        removeBotFromScope()
+        val cx = Context.getCurrentContext()
+        val pending = cx.captureContinuation()
+        throw pending
+    }
+
+    @Synchronized
+    private fun toSerializedFrame(context: Context, continuation: Any): String {
+        val baos = ByteArrayOutputStream()
+        val sos = ScriptableOutputStream(baos, context.initStandardObjects())
+        sos.writeObject(continuation)
+        sos.writeObject(scope)
+        return Base64.encodeBase64String(baos.toByteArray())
+    }
+
+    @Synchronized
     fun serialize() = CompoundTag().apply {
         putString("script", script)
         putString("serializedFrame", serializedFrame)
-        putString("pendingTask", pendingTask?.first?.id.orEmpty())
-        pendingTask?.first?.serialize()?.let { put("task", it) }
+        pendingTask?.task?.let { TickableTask.serialize(it) }?.let { put("pendingTask", it) }
+        val others = ListTag()
+        tickingTasks.forEach {
+            others.add(TickableTask.serialize(it.task))
+        }
+        put("tickingTasks", others)
     }
 
+    @Synchronized
     fun deserialize(compound: CompoundTag) = synchronized(this) {
         script = compound.getString("script")
         serializedFrame = compound.getString("serializedFrame")
-        val pendingTaskId = compound.getString("pendingTask")
-        if (pendingTaskId.isNotEmpty()) {
-            val task = TaskRegistry.constructTask(pendingTaskId, this)!!
-            task.deserialize(compound.get("task")!!)
-            val lock = ReentrantLock()
-            pendingTask = Pair(task, Pair(lock, lock.newCondition()))
+        pendingTask = TaskFuture(TickableTask.deserialize(compound.getCompound("pendingTask"), this))
+        val others = compound.getList("tickingTasks", 0)
+        others.forEach {
+            check(it is CompoundTag)
+            tickingTasks.add(TaskFuture(TickableTask.deserialize(it, this@BotEnv)))
         }
     }
 

@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.FutureResult
+import com.sifsstudio.botjs.env.PollResult
 import com.sifsstudio.botjs.env.TickableTask
 import com.sifsstudio.botjs.util.asStringTag
 import net.minecraft.Util
@@ -16,7 +16,7 @@ class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) 
 
     @Suppress("unused")
     fun speak(content: String) {
-        setPendingTaskAndWait(SpeakTask(content, environment))
+        submit(SpeakTask(content, environment))
     }
 
     @Suppress("unused")
@@ -39,13 +39,13 @@ class SpeakTask(private var content: String, private val environment: BotEnv) : 
 
     override val id = ID
 
-    override fun tick(): FutureResult<Unit> {
+    override fun tick(): PollResult<Unit> {
         environment.entity.level.server!!.playerList.broadcastMessage(
             TextComponent(content),
             ChatType.CHAT,
             Util.NIL_UUID
         )
-        return FutureResult.done(Unit)
+        return PollResult.done(Unit)
     }
 
     override fun serialize(): Tag = content.asStringTag()

@@ -17,12 +17,12 @@ interface TickableTask<T : Any> {
             put("data", task.serialize())
         }
 
-        fun deserialize(compound: CompoundTag, environment: BotEnv): TickableTask<*> {
+        fun deserialize(compound: CompoundTag, environment: BotEnv): TickableTask<*>? {
             return if (!compound.isEmpty) {
                 val task = TaskRegistry.constructTask(compound.getString("id"), environment)!!
                 task.deserialize(compound.get("task")!!)
                 task
-            } else throw IllegalStateException()
+            } else null
         }
     }
 }

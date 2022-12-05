@@ -23,7 +23,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
     var script = ""
     var running = false
         private set
-    var ticking = false
+    var tickable = false
     private val tickingTasks: MutableSet<TaskFuture> = mutableSetOf()
     private var pendingTask: TaskFuture? = null
     var lastPendingTaskResult: Any? = null
@@ -57,7 +57,10 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 } else {
                     exception.printStackTrace()
                 }
-                synchronized(this) { pendingTask = null }
+                synchronized(this) {
+                    tickingTasks.clear()
+                    pendingTask = null
+                }
             } finally {
                 running = false
                 Context.exit()
@@ -90,7 +93,10 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 } else {
                     exception.printStackTrace()
                 }
-                synchronized(this) { this.pendingTask = null }
+                synchronized(this) {
+                    this.tickingTasks.clear()
+                    this.pendingTask = null
+                }
                 ""
             } finally {
                 running = false
@@ -101,7 +107,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     @Synchronized
     fun tick() {
-        ticking = true
+        tickable = true
         tickingTasks.iterator().run {
             while (hasNext()) {
                 val now = next()
@@ -137,7 +143,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun <T : Any> submit(task: TickableTask<T>): TaskFuture {
         val result = TaskFuture(task)
         tickingTasks.add(result)
-        if(!ticking) {
+        if(!tickable) {
             suspendExecution()
         }
         return result
@@ -194,11 +200,11 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun deserialize(compound: CompoundTag) = synchronized(this) {
         script = compound.getString("script")
         serializedFrame = compound.getString("serializedFrame")
-        pendingTask = TaskFuture(TickableTask.deserialize(compound.getCompound("pendingTask"), this))
+        pendingTask = TickableTask.deserialize(compound.getCompound("pendingTask"), this)?.let { TaskFuture(it) }
         val others = compound.getList("tickingTasks", 0)
         others.forEach {
             check(it is CompoundTag)
-            tickingTasks.add(TaskFuture(TickableTask.deserialize(it, this@BotEnv)))
+            tickingTasks.add(TaskFuture(TickableTask.deserialize(it, this@BotEnv)!!))
         }
     }
 
@@ -219,5 +225,4 @@ class BotEnv(val entity: BotEntity) : Runnable {
             EXECUTOR_SERVICE = null
         }
     }
-
 }

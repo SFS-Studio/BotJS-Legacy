@@ -17,11 +17,13 @@ class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) 
     @Suppress("unused")
     fun speak(content: String) {
         submit(SpeakTask(content, environment))
+        checkSuspend()
     }
 
     @Suppress("unused")
     fun log(content: String) {
         LOGGER.info(content)
+        checkSuspend()
     }
 
     companion object {

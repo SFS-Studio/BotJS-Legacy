@@ -11,7 +11,14 @@ abstract class AbilityBase(private val environment: BotEnv) {
 
     protected fun<T: Any> block(task: TickableTask<T>): T {
         val future = environment.submit(task)
-        environment.block<Any>(future)
-        return future.result as T
+        val result = environment.block<T>(future)
+        if(!future.isDone) {
+            environment.checkSuspend()
+        }
+        return result
+    }
+
+    protected fun checkSuspend() {
+        environment.checkSuspend()
     }
 }

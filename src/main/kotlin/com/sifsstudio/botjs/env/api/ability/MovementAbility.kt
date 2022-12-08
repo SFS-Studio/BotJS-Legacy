@@ -14,11 +14,14 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
 
     @Suppress("unused")
     fun moveTo(x: Double, y: Double, z: Double): TaskFuture {
-        return submit(DestinationMovementTask(x, y, z, environment))
+        val future = submit(DestinationMovementTask(x, y, z, environment))
+        checkSuspend()
+        return future
     }
 
     @Suppress("unused")
     fun lookAt(x: Double, y: Double, z: Double) {
+        checkSuspend()
         environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
         environment.entity.lookControl.setLookAt(x, y, z)
         submit(SleepTask(2))

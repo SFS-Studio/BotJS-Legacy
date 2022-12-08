@@ -16,5 +16,5 @@ class SensingAbility(private val environment: BotEnv) : AbilityBase(environment)
             predicate(WrappedEntity(it))
         }.map {
             WrappedEntity(it)
-        }
+        }.also { checkSuspend() }
 }

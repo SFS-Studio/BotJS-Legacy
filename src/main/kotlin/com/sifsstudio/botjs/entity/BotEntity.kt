@@ -126,14 +126,9 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
                 if (!environment.running) {
-                    currentRunFuture = EXECUTOR_SERVICE!!.submit(environment)
+                    this.currentRunFuture = environment.launch()
                 } else {
-                    if (this::currentRunFuture.isInitialized) {
-                        currentRunFuture.cancel(true)
-                    } else {
-                        // IMPOSSIBLE
-                        throw IllegalStateException()
-                    }
+                    environment.shutdown()
                 }
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)

@@ -3,6 +3,9 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.util.concurrent.Parker
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
+import net.minecraftforge.fml.unsafe.UnsafeHacks
+import sun.misc.Unsafe
+import java.util.concurrent.locks.LockSupport
 
 interface TickableTask<T : Any> {
     val id: String
@@ -29,7 +32,7 @@ interface TickableTask<T : Any> {
 
 class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
     companion object {
-        fun <T : Any> done(result: T) = PollResult<T>(true, result)
+        fun <T : Any> done(result: T) = PollResult(true, result)
 
         fun <T : Any> pending() = PollResult<T>(false, null)
     }
@@ -55,19 +58,21 @@ class TaskFuture (internal val task: TickableTask<*>) {
         }
     }
 
-    @Synchronized
     @JvmName("#join")
     fun<T: Any> join(): PollResult<T> {
-        if(isDone) {
-            return PollResult.done(result as T)
+        synchronized(this) {
+            if (isDone) {
+                return PollResult.done(result as T)
+            }
+            check(!this::parker.isInitialized) { "Future blocks multiple threads! Should only be one!" }
+            parker = Parker()
         }
-        check(!this::parker.isInitialized) {"Future blocks multiple threads! Should only be one!"}
-        parker = Parker()
         parker.park()
-        if(!isDone) {
-            return PollResult.pending()
+        return synchronized(this) {
+            if (!isDone) {
+                PollResult.pending()
+            } else PollResult.done(result as T)
         }
-        return PollResult.done(result as T)
     }
 
     @Synchronized

@@ -14,9 +14,7 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
 
     @Suppress("unused")
     fun moveTo(x: Double, y: Double, z: Double): TaskFuture<Boolean> {
-        val future = submit(DestinationMovementTask(x, y, z, environment))
-        suspendIfNecessary(future)
-        return future
+        return submit(DestinationMovementTask(x, y, z, environment))
     }
 
     @Suppress("unused")

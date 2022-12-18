@@ -25,9 +25,7 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
 
     @Suppress("unused")
     fun breakBlock(x: Double, y: Double, z: Double): TaskFuture<Boolean> {
-        val future = submit(BreakBlockTask(BlockPos(x, y, z), environment))
-        suspendIfNecessary(future)
-        return future
+        return submit(BreakBlockTask(BlockPos(x, y, z), environment))
     }
 
     @Suppress("unused")

@@ -3,8 +3,10 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
+import com.sifsstudio.botjs.util.getList
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
 import org.apache.commons.codec.binary.Base64
@@ -24,10 +26,9 @@ class BotEnv(val entity: BotEntity) : Runnable {
     var script = ""
     var running = false
         private set
-    var tickable = false
-    private val tickingTasks: MutableSet<TaskFuture> = mutableSetOf()
-    private var pendingTask: TaskFuture? = null
-    var lastPendingTaskResult: Any? = null
+    private var tickable = false
+    private val tickingFutures: MutableSet<TaskFuture<*>> = mutableSetOf()
+    private var pendingFuture: Pair<TaskFuture<*>, Boolean>? = null // second: is suspended
     private lateinit var scope: ScriptableObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
     private var runFuture: Future<*>? = null
@@ -38,7 +39,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     override fun run() {
         running = true
-        val context = ctxFactory.enterContext()!!
+        val context = Context.enter()
         context.optimizationLevel = -1
         scope = context.initStandardObjects().apply {
             defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
@@ -48,22 +49,23 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 val botScript = context.compileString(script, "Bot Code", 0, null)
                 context.executeScriptWithContinuations(botScript, scope)
             } catch (pending: ContinuationPending) {
-                val baos = ByteArrayOutputStream()
-                val sos = ScriptableOutputStream(baos, context.initStandardObjects())
-                sos.writeObject(pending.continuation)
-                sos.writeObject(scope)
-                serializedFrame = Base64.encodeBase64String(baos.toByteArray())
+                serializedFrame = getSerializedFrame(context, pending.continuation)
+                if (pending.applicationState != null) {
+                    check(pending.applicationState is TaskFuture<*>)
+                    tickingFutures.remove(pending.applicationState)
+                    pendingFuture = Pair(pending.applicationState as TaskFuture<*>, true)
+                }
             } catch (exception: Exception) {
                 if (exception is WrappedException && exception.wrappedException is InterruptedException) {
                     // DO NOTHING
                 } else {
                     exception.printStackTrace()
                 }
-                synchronized(this) {
-                    tickingTasks.clear()
-                    pendingTask = null
-                }
             } finally {
+                synchronized(this) {
+                    tickingFutures.clear()
+                    pendingFuture = null
+                }
                 Context.exit()
                 running = false
             }
@@ -74,32 +76,42 @@ class BotEnv(val entity: BotEntity) : Runnable {
             scope = (sis.readObject() as ScriptableObject).apply {
                 defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
             }
-            serializedFrame = try {
-                synchronized(this) {
-                    val pendingTask = pendingTask
-                    if (pendingTask != null) {
-                        if (!blockNoCapture(pendingTask)) {
-                            toSerializedFrame(context, continuation)
+            try {
+                val ret = synchronized(this) {
+                    val pendingTask = pendingFuture
+                    if (pendingTask != null && !pendingTask.second) {
+                        val res = blockWithoutCapture(pendingTask.first)
+                        if (!res.isDone) {
                             return
                         }
+                        return@synchronized res.result
+                    } else if (pendingTask != null) {
+                        return@synchronized pendingTask.first
+                    } else {
+                        return@synchronized null
                     }
                 }
-                context.resumeContinuation(continuation, scope, lastPendingTaskResult)
-                ""
+                context.resumeContinuation(continuation, scope, ret)
+                serializedFrame = ""
             } catch (pending: ContinuationPending) {
-                toSerializedFrame(context, pending.continuation)
+                serializedFrame = getSerializedFrame(context, pending.continuation)
+                if (pending.applicationState != null) {
+                    check(pending.applicationState is TaskFuture<*>)
+                    tickingFutures.remove(pending.applicationState)
+                    pendingFuture = Pair(pending.applicationState as TaskFuture<*>, true)
+                }
             } catch (exception: Exception) {
                 if ((exception is WrappedException && exception.wrappedException is InterruptedException) || exception is InterruptedException) {
                     // DO NOTHING
                 } else {
                     exception.printStackTrace()
                 }
-                synchronized(this) {
-                    tickingTasks.clear()
-                    pendingTask = null
-                }
-                ""
+                serializedFrame = ""
             } finally {
+                synchronized(this) {
+                    tickingFutures.clear()
+                    pendingFuture = null
+                }
                 Context.exit()
                 running = false
             }
@@ -109,7 +121,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun tick() {
         tickable = true
         synchronized(this) {
-            tickingTasks.iterator().run {
+            tickingFutures.iterator().run {
                 while (hasNext()) {
                     val now = next()
                     val result = now.task.tick()
@@ -120,69 +132,70 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 }
             }
         }
-        if (pendingTask != null) {
-            check(pendingTask != null)
-            val result = pendingTask!!.task.tick()
+        val pendingFuture = pendingFuture
+        if (pendingFuture != null && !pendingFuture.second) {
+            val result = pendingFuture.first.task.tick()
             if (result.isDone) {
-                pendingTask!!.done(result.result!!)
-                pendingTask = null
+                this.pendingFuture = null
+                pendingFuture.first.done(result.result!!)
             }
         }
     }
 
     fun remove() {
         tickable = false
-        if (pendingTask != null) {
-            pendingTask!!.suspend()
-            pendingTask = null
+        if (pendingFuture != null) {
+            pendingFuture!!.first.suspend()
+            pendingFuture = null
         }
-        tickingTasks.clear()
+        tickingFutures.clear()
     }
 
     private fun removeBotFromScope() {
         scope.delete("bot")
     }
 
-    fun <T : Any> submit(task: TickableTask<T>): TaskFuture {
-        val result = TaskFuture(task)
+    fun <T : Any> submit(task: TickableTask<T>): TaskFuture<T> {
+        val future = TaskFuture(task)
         synchronized(this) {
-            tickingTasks.add(result)
+            tickingFutures.add(future)
         }
-        return result
+        suspendIfNecessary(future)
+        return future
     }
 
-    fun <T : Any> block(future: TaskFuture): T {
+    fun <T : Any> block(future: TaskFuture<T>): T {
         synchronized(this) {
-            check(tickingTasks.remove(future))
+            check(tickingFutures.remove(future))
+            pendingFuture = Pair(future, false)
         }
-        pendingTask = future
-        val res = future.join<T>()
+        val res = future.join()
         if (!res.isDone) {
-            suspendExecution()
+            suspendExecution(null)
         }
         return res.result!!
     }
 
-    private fun blockNoCapture(future: TaskFuture): Boolean {
-        pendingTask = future
-        val pResult = future.join<Any>()
-        return pResult.isDone
+    private fun <T : Any> blockWithoutCapture(future: TaskFuture<T>): PollResult<T> {
+        pendingFuture = Pair(future, false)
+        return future.join()
     }
 
-    fun checkSuspend() {
-        if(!tickable) {
-            suspendExecution()
+    fun suspendIfNecessary(data: Any?) {
+        if (!tickable) {
+            suspendExecution(data)
         }
     }
 
-    private fun suspendExecution() {
+    private fun suspendExecution(data: Any?) {
         removeBotFromScope()
         val cx = Context.getCurrentContext()
         val pending = cx.captureContinuation()
+        pending.applicationState = data
         throw pending
     }
 
-    private fun toSerializedFrame(context: Context, continuation: Any): String {
+    private fun getSerializedFrame(context: Context, continuation: Any): String {
         val baos = ByteArrayOutputStream()
         val sos = ScriptableOutputStream(baos, context.initStandardObjects())
         sos.writeObject(continuation)
@@ -194,9 +207,10 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun serialize() = CompoundTag().apply {
         putString("script", script)
         putString("serializedFrame", serializedFrame)
-        pendingTask?.task?.let { TickableTask.serialize(it) }?.let { put("pendingTask", it) }
+        pendingFuture?.let { putBoolean("pendingTaskSuspended", it.second)
+            TickableTask.serialize(it.first.task) }?.let { this@apply.put("pendingTask", it) }
         val others = ListTag()
-        tickingTasks.forEach {
+        tickingFutures.forEach {
             others.add(TickableTask.serialize(it.task))
         }
         put("tickingTasks", others)
@@ -206,44 +220,49 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun deserialize(compound: CompoundTag) {
         script = compound.getString("script")
         serializedFrame = compound.getString("serializedFrame")
-        pendingTask = TickableTask.deserialize(compound.getCompound("pendingTask"), this)?.let { TaskFuture(it) }
-        val others = compound.getList("tickingTasks", 0)
+        pendingFuture = TickableTask.deserialize(compound.getCompound("pendingTask"), this)?.let { Pair(TaskFuture(it), compound.getBoolean("pendingTaskSuspended")) }
+        if (pendingFuture?.second == true) {
+            tickingFutures.add(pendingFuture?.first!!)
+        }
+        val others = compound.getList("tickingTasks", Tag.TAG_COMPOUND)
         others.forEach {
             check(it is CompoundTag)
-            tickingTasks.add(TaskFuture(TickableTask.deserialize(it, this@BotEnv)!!))
+            tickingFutures.add(TaskFuture(TickableTask.deserialize(it, this@BotEnv)!!))
         }
     }
 
     @Synchronized
-    fun shutdown() {
+    fun terminateExecution() {
         check(running)
-        tickable = false
         runFuture!!.cancel(true)
         runFuture = null
     }
 
     @Synchronized
-    fun launch(): Future<*> {
-        if((runFuture != null) and (runFuture?.isDone == true)) {
-            return runFuture!!
+    fun launch() {
+        if (runFuture?.isDone == false) {
+            return
         }
         runFuture = EXECUTOR_SERVICE!!.submit(this)
-        return runFuture!!
     }
 
     companion object {
         private val BOT_THREAD_ID = AtomicInteger(0)
-        private val ctxFactory: ContextFactory = object : ContextFactory() {
+        private val CTX_FACTORY: ContextFactory = object : ContextFactory() {
             override fun hasFeature(cx: Context?, featureIndex: Int): Boolean {
                 check(cx != null)
                 check(cx.factory == this)
-                if(featureIndex == Context.FEATURE_ENABLE_JAVA_MAP_ACCESS) {
+                if (featureIndex == Context.FEATURE_ENABLE_JAVA_MAP_ACCESS) {
                     return true
                 }
                 return super.hasFeature(cx, featureIndex)
             }
         }
         var EXECUTOR_SERVICE: ExecutorService? = null
+
+        init {
+            ContextFactory.initGlobal(CTX_FACTORY)
+        }
 
         fun onServerSetup(@Suppress("UNUSED_PARAMETER") event: ServerAboutToStartEvent) {
             EXECUTOR_SERVICE = Executors.newCachedThreadPool {

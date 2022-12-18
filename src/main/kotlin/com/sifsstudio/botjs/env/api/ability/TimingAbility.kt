@@ -14,7 +14,6 @@ class TimingAbility(environment: BotEnv) : AbilityBase(environment) {
         if (ticks >= 1) {
             block(SleepTask(ticks))
         }
-        checkSuspend()
     }
 }
 

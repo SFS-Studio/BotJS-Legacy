@@ -2,7 +2,6 @@ package com.sifsstudio.botjs.entity
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.BotEnv.Companion.EXECUTOR_SERVICE
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
 import com.sifsstudio.botjs.item.UpgradeItem
@@ -27,7 +26,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.network.PacketDistributor
-import java.util.concurrent.Future
 
 class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
 
@@ -49,7 +47,6 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         }
     }
     val environment = BotEnv(this)
-    private lateinit var currentRunFuture: Future<*>
 
     override fun getArmorSlots() = emptyList<ItemStack>()
 
@@ -83,7 +80,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         super.onAddedToWorld()
         if (!this.level.isClientSide) {
             if (environment.serializedFrame.isNotEmpty()) {
-                currentRunFuture = EXECUTOR_SERVICE!!.submit(environment)
+                environment.launch()
             }
         }
     }
@@ -100,7 +97,6 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         if (!this.level.isClientSide) {
             environment.remove()
         }
-        environment.tickable = false
     }
 
     override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {
@@ -126,9 +122,9 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
                 if (!environment.running) {
-                    this.currentRunFuture = environment.launch()
+                    environment.launch()
                 } else {
-                    environment.shutdown()
+                    environment.terminateExecution()
                 }
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)

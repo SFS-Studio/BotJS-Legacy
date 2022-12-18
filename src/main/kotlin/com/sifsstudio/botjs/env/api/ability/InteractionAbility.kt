@@ -24,9 +24,9 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
     override val id = "interaction"
 
     @Suppress("unused")
-    fun breakBlock(x: Double, y: Double, z: Double): TaskFuture {
+    fun breakBlock(x: Double, y: Double, z: Double): TaskFuture<Boolean> {
         val future = submit(BreakBlockTask(BlockPos(x, y, z), environment))
-        checkSuspend()
+        suspendIfNecessary(future)
         return future
     }
 
@@ -35,7 +35,7 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
         val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
         fakePlayer.setPos(environment.entity.position())
         fakePlayer.attack(entity.entity)
-        checkSuspend()
+        suspendIfNecessary(null)
     }
 
     @Suppress("unused")
@@ -43,7 +43,7 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
         val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
         fakePlayer.setPos(environment.entity.position())
         fakePlayer.sweepAttack()
-        checkSuspend()
+        suspendIfNecessary(null)
     }
 }
 

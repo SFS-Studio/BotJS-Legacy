@@ -12,17 +12,17 @@ class Parker {
     private var unparkExpected: Boolean = false
     private var parking: Boolean = false
 
-    @Synchronized
     fun park(): Boolean {
-        check(!dead) {"Parker not reset to initial state!"}
-        check(!parking) {"The current thread is already parking on this parker! This should not be possible."}
+        check(!dead) { "Parker not reset to initial state!" }
+        check(!parking) { "The current thread is already parking on this parker! This should not be possible." }
+        parking = true
         val result: Boolean
-        while(true) {
+        while (true) {
             LockSupport.park(this)
-            if(holder.isInterrupted) {
+            if (holder.isInterrupted) {
                 result = false
                 break
-            } else if(unparkExpected) {
+            } else if (unparkExpected) {
                 result = true
                 break
             }
@@ -32,22 +32,9 @@ class Parker {
     }
 
     @Synchronized
-    fun reset() {
-        dead = false
-        unparkExpected = false
-    }
-
-    @Synchronized
     fun unpark() {
-        check(!dead) {"Parker not reset to initial state!"}
-        check(parking) {"The holder thread is currently not blocked on this parker!"}
-        unparkExpected = true
-        LockSupport.unpark(holder)
-    }
-
-    @Synchronized
-    fun unparkNoThrow() {
-        if(dead or !parking) return
+        check(!dead) { "Parker not reset to initial state!" }
+        check(parking) { "The holder thread is currently not blocked on this parker!" }
         unparkExpected = true
         LockSupport.unpark(holder)
     }

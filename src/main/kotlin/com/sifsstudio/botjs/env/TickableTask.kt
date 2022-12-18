@@ -3,9 +3,6 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.util.concurrent.Parker
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
-import net.minecraftforge.fml.unsafe.UnsafeHacks
-import sun.misc.Unsafe
-import java.util.concurrent.locks.LockSupport
 
 interface TickableTask<T : Any> {
     val id: String
@@ -38,31 +35,28 @@ class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
     }
 }
 
-class TaskFuture (internal val task: TickableTask<*>) {
-    var isDone: Boolean = false
-        private set
+class TaskFuture<T : Any>(internal val task: TickableTask<T>) {
+    private var isDone: Boolean = false
     private var released: Boolean = false
-    lateinit var result: Any
-        private set
+    private lateinit var result: T
     private lateinit var parker: Parker
 
     @Synchronized
-    @JvmName("#done")
-    fun done(result: Any) {
-        check(!released) {"Future already finished"}
+    internal fun done(result: Any) {
+        check(!released) { "Future already finished" }
         released = true
         isDone = true
-        this.result = result
-        if(this::parker.isInitialized) {
+        @Suppress("UNCHECKED_CAST")
+        this.result = result as T
+        if (this::parker.isInitialized) {
             parker.unpark()
         }
     }
 
-    @JvmName("#join")
-    fun<T: Any> join(): PollResult<T> {
+    internal fun join(): PollResult<T> {
         synchronized(this) {
             if (isDone) {
-                return PollResult.done(result as T)
+                return PollResult.done(result)
             }
             check(!this::parker.isInitialized) { "Future blocks multiple threads! Should only be one!" }
             parker = Parker()
@@ -71,16 +65,15 @@ class TaskFuture (internal val task: TickableTask<*>) {
         return synchronized(this) {
             if (!isDone) {
                 PollResult.pending()
-            } else PollResult.done(result as T)
+            } else PollResult.done(result)
         }
     }
 
     @Synchronized
-    @JvmName("#suspend")
-    fun suspend() {
-        check(!released) {"Future already finished"}
+    internal fun suspend() {
+        check(!released) { "Future already finished" }
         released = true
-        if(this::parker.isInitialized) {
+        if (this::parker.isInitialized) {
             parker.unpark()
         }
     }

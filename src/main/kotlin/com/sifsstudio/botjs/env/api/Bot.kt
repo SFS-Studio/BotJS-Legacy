@@ -27,10 +27,7 @@ class Bot(private val environment: BotEnv, abilities: Map<String, AbilityBase>) 
         get() = environment.entity.z
 
     @Suppress("unused")
-    fun block(future: TaskFuture) {
-        val result = environment.block<Any>(future)
-        if(!future.isDone) {
-            environment.checkSuspend()
-        }
+    fun <T : Any> block(future: TaskFuture<T>): T {
+        return environment.block(future)
     }
 }

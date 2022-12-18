@@ -9,6 +9,7 @@ class SensingAbility(private val environment: BotEnv) : AbilityBase(environment)
 
     @Suppress("unused")
     fun searchEntity(predicate: (WrappedEntity) -> Boolean, range: Double): List<WrappedEntity> =
+        // FIXME: return non-null when suspended
         environment.entity.level.getEntities(
             environment.entity,
             AABB.ofSize(environment.entity.position(), range, range, range)
@@ -16,5 +17,5 @@ class SensingAbility(private val environment: BotEnv) : AbilityBase(environment)
             predicate(WrappedEntity(it))
         }.map {
             WrappedEntity(it)
-        }.also { checkSuspend() }
+        }.also { suspendIfNecessary(null) }
 }

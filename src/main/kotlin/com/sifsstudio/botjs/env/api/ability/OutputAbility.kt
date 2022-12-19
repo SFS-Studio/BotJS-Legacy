@@ -10,6 +10,7 @@ import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.TextComponent
 import org.apache.logging.log4j.LogManager
+import org.mozilla.javascript.ArrowFunction
 
 class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) {
     override val id = "output"
@@ -21,8 +22,8 @@ class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) 
     }
 
     @Suppress("unused")
-    fun log(content: String) {
-        LOGGER.info(content)
+    fun log(content: () -> Unit) {
+        LOGGER.info(content())
         suspendIfNecessary(null)
     }
 

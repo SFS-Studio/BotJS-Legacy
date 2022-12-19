@@ -29,7 +29,8 @@ class BotEnv(val entity: BotEntity) : Runnable {
     private var tickable = false
     private val tickingFutures: MutableSet<TaskFuture<*>> = mutableSetOf()
     private var pendingFuture: Pair<TaskFuture<*>, Boolean>? = null // second: is suspended
-    private lateinit var scope: ScriptableObject
+    lateinit var scope: ScriptableObject
+    lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
     private var runFuture: Future<*>? = null
     var serializedFrame = ""
@@ -76,6 +77,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
             scope = (sis.readObject() as ScriptableObject).apply {
                 defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
             }
+            cacheScope = sis.readObject() as NativeObject
             try {
                 val ret = synchronized(this) {
                     val pendingTask = pendingFuture
@@ -200,6 +202,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         val sos = ScriptableOutputStream(baos, context.initStandardObjects())
         sos.writeObject(continuation)
         sos.writeObject(scope)
+        sos.writeObject(cacheScope)
         return Base64.encodeBase64String(baos.toByteArray())
     }
 

@@ -32,6 +32,8 @@ class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
         fun <T : Any> done(result: T) = PollResult(true, result)
 
         fun <T : Any> pending() = PollResult<T>(false, null)
+
+        fun done() = PollResult(true, Unit)
     }
 }
 

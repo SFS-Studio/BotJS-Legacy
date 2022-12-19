@@ -20,10 +20,7 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
     @Suppress("unused")
     fun lookAt(x: Double, y: Double, z: Double) {
         // FIXME: move to logic thread
-        suspendIfNecessary(null)
-        environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
-        environment.entity.lookControl.setLookAt(x, y, z)
-        block(SleepTask(2))
+        block(LookAtTask(x,y,z, environment))
     }
 }
 
@@ -32,8 +29,7 @@ class DestinationMovementTask(
     private var y: Double,
     private var z: Double,
     private val environment: BotEnv
-) :
-    TickableTask<Boolean> {
+) : TickableTask<Boolean> {
     companion object {
         const val ID = "destination_movement"
         const val MOVE_SPEED = 0.5
@@ -73,5 +69,46 @@ class DestinationMovementTask(
         x = compound.getDouble("x")
         y = compound.getDouble("y")
         z = compound.getDouble("z")
+    }
+}
+
+class LookAtTask(
+    private var x: Double,
+    private var y: Double,
+    private var z: Double,
+    private val environment: BotEnv
+) : TickableTask<Unit> {
+    companion object {
+        const val ID = "look_at"
+    }
+
+    @Suppress("unused")
+    constructor(environment: BotEnv) : this(0.0, 0.0, 0.0, environment)
+
+    override val id = ID
+    private var tickProgress: Int = 0
+
+    override fun tick(): PollResult<Unit> =
+        when(tickProgress) {
+            1 -> {
+                environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
+                environment . entity . lookControl . setLookAt (x, y, z)
+                tickProgress++
+                PollResult.pending()
+            }
+            3 -> PollResult.done()
+            else -> {
+                tickProgress++
+                PollResult.pending()
+            }
+        }
+
+    override fun serialize() = CompoundTag().apply {
+        putInt("tickProgress", tickProgress)
+    }
+
+    override fun deserialize(tag: Tag) {
+        val compound = tag as CompoundTag
+        tickProgress = compound.getInt("tickProgress")
     }
 }

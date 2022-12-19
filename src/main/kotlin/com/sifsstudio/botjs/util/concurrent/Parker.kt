@@ -27,6 +27,7 @@ class Parker {
                 break
             }
         }
+        parking = false
         dead = true
         return result
     }

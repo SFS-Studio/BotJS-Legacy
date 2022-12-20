@@ -38,7 +38,8 @@ class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
 }
 
 class TaskFuture<T : Any>(internal val task: TickableTask<T>) {
-    private var isDone: Boolean = false
+    var isDone: Boolean = false
+        private set
     private var released: Boolean = false
     private lateinit var result: T
     private lateinit var parker: Parker

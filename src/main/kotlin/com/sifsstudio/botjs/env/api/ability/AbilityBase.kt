@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.TickableTask
+import com.sifsstudio.botjs.env.task.TickableTask
 
 abstract class AbilityBase(private val environment: BotEnv) {
 

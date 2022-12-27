@@ -1,5 +1,6 @@
-package com.sifsstudio.botjs.env
+package com.sifsstudio.botjs.env.task
 
+import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.api.ability.*
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createType

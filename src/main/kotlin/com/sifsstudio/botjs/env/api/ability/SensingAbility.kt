@@ -3,6 +3,8 @@ package com.sifsstudio.botjs.env.api.ability
 import com.sifsstudio.botjs.env.*
 import com.sifsstudio.botjs.env.api.wrapper.WrappedBlockState
 import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
+import com.sifsstudio.botjs.env.task.PollResult
+import com.sifsstudio.botjs.env.task.TickableTask
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
@@ -17,7 +19,7 @@ class SensingAbility(private val environment: BotEnv) : AbilityBase(environment)
         block(EntitySearchTask(range, environment, predicate))
 
     @Suppress("unused")
-    fun searchBlock(range: Double, predicate: Function): List<WrappedBlockState> =
+    fun searchBlockSnapshot(range: Double, predicate: Function): List<WrappedBlockState> =
         block(BlockStateSearchTask(range, environment, predicate))
 }
 

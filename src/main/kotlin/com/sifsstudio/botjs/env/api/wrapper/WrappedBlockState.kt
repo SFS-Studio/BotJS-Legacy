@@ -4,16 +4,21 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.level.block.state.BlockState
 
 @Suppress("unused")
-class WrappedBlockState(internal val pos: BlockPos, internal val state: BlockState) {
+class WrappedBlockState(pos: BlockPos, state: BlockState) {
 
-    val x: Int by pos::x
+    @JvmField
+    val x = pos.x
 
-    val y: Int by pos::y
+    @JvmField
+    val y = pos.y
 
-    val z: Int by pos::z
+    @JvmField
+    val z = pos.z
 
+    @JvmField
     val id: String = state.block.registryName!!.toString()
 
-    val properties
-        get() = state.properties.associate { it.name to state.getValue(it) }
+    @JvmField
+    val properties = state.properties.associate { it.name to state.getValue(it) }
+
 }

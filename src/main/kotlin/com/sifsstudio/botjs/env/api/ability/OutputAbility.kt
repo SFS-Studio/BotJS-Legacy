@@ -1,8 +1,8 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.PollResult
-import com.sifsstudio.botjs.env.TickableTask
+import com.sifsstudio.botjs.env.task.PollResult
+import com.sifsstudio.botjs.env.task.TickableTask
 import com.sifsstudio.botjs.util.asStringTag
 import net.minecraft.Util
 import net.minecraft.nbt.StringTag
@@ -10,7 +10,6 @@ import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.TextComponent
 import org.apache.logging.log4j.LogManager
-import org.mozilla.javascript.ArrowFunction
 
 class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) {
     override val id = "output"

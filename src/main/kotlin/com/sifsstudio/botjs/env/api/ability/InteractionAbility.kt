@@ -1,9 +1,9 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.PollResult
-import com.sifsstudio.botjs.env.TaskFuture
-import com.sifsstudio.botjs.env.TickableTask
+import com.sifsstudio.botjs.env.task.PollResult
+import com.sifsstudio.botjs.env.task.TaskFuture
+import com.sifsstudio.botjs.env.task.TickableTask
 import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
 import com.sifsstudio.botjs.util.extinguishFire
 import com.sifsstudio.botjs.util.plus

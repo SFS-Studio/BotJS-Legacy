@@ -1,9 +1,9 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.PollResult
-import com.sifsstudio.botjs.env.TaskFuture
-import com.sifsstudio.botjs.env.TickableTask
+import com.sifsstudio.botjs.env.task.PollResult
+import com.sifsstudio.botjs.env.task.TaskFuture
+import com.sifsstudio.botjs.env.task.TickableTask
 import net.minecraft.commands.arguments.EntityAnchorArgument
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag

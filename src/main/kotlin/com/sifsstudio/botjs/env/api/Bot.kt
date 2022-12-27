@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.TaskFuture
+import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import java.util.*
 

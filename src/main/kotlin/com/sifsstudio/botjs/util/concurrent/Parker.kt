@@ -4,13 +4,13 @@ import java.util.concurrent.locks.LockSupport
 
 /**
  * Utility class holding park/unpark control
- * for the thread creating this Parker.
  */
 class Parker {
     private val holder: Thread = Thread.currentThread()
     private var dead: Boolean = false
     private var unparkExpected: Boolean = false
-    private var parking: Boolean = false
+    var parking: Boolean = false
+        private set
 
     fun park(): Boolean {
         check(!dead) { "Parker not reset to initial state!" }

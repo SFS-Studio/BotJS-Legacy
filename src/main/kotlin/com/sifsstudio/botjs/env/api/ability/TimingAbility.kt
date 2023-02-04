@@ -6,7 +6,7 @@ import com.sifsstudio.botjs.env.task.TickableTask
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 
-class TimingAbility(environment: BotEnv) : AbilityBase(environment) {
+class TimingAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
     override val id = "timing"
 
     @Suppress("unused")
@@ -17,7 +17,7 @@ class TimingAbility(environment: BotEnv) : AbilityBase(environment) {
     }
 }
 
-class SleepTask(private var ticks: Int) : TickableTask<Unit> {
+class SleepTask internal constructor(private var ticks: Int) : TickableTask<Unit> {
 
     @Suppress("unused", "UNUSED_PARAMETER")
     constructor(environment: BotEnv) : this(0)
@@ -31,7 +31,7 @@ class SleepTask(private var ticks: Int) : TickableTask<Unit> {
     override fun tick(): PollResult<Unit> {
         ticks--
         return if (ticks <= 0) {
-            PollResult.done(Unit)
+            PollResult.done()
         } else {
             PollResult.pending()
         }

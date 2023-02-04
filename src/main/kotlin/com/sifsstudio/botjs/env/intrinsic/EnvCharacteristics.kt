@@ -1,10 +1,27 @@
 package com.sifsstudio.botjs.env.intrinsic
 
-sealed interface EnvCharacteristic {
+import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.intrinsic.conn.RemoteEnv
+import com.sifsstudio.botjs.env.intrinsic.conn.RemoteLocator
+
+open class EnvCharacteristic(protected val env: BotEnv) {
     class Key<T : EnvCharacteristic>
     companion object {
         val CONNECTION = Key<ConnectionProperties>()
     }
+
+    open fun onEnvAdded() {}
+    open fun onEnvRemoved() {}
 }
 
-data class ConnectionProperties(val range: Double) : EnvCharacteristic
+class ConnectionProperties(env: BotEnv, val range: Double, uid: String, val descriptor: MutableMap<String, String>) :
+    EnvCharacteristic(env) {
+    val remote = RemoteEnv(uid, descriptor, env)
+    override fun onEnvAdded() {
+        RemoteLocator.add(remote)
+    }
+
+    override fun onEnvRemoved() {
+        RemoteLocator.dispose(remote)
+    }
+}

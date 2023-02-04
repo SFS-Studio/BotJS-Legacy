@@ -9,7 +9,8 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.Vec3
 
-class MovementAbility(private val environment: BotEnv) : AbilityBase(environment) {
+class MovementAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
+
     override val id = "movement"
 
     @Suppress("unused")
@@ -19,12 +20,11 @@ class MovementAbility(private val environment: BotEnv) : AbilityBase(environment
 
     @Suppress("unused")
     fun lookAt(x: Double, y: Double, z: Double) {
-        // FIXME: move to logic thread
         block(LookAtTask(x,y,z, environment))
     }
 }
 
-class DestinationMovementTask(
+class DestinationMovementTask internal constructor(
     private var x: Double,
     private var y: Double,
     private var z: Double,

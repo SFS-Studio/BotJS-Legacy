@@ -1,8 +1,8 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.*
-import com.sifsstudio.botjs.env.api.wrapper.WrappedBlockState
-import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
+import com.sifsstudio.botjs.env.api.wrapper.BlockSnapshot
+import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
 import net.minecraft.core.BlockPos
@@ -11,42 +11,48 @@ import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.AABB
 import org.mozilla.javascript.Function
 
-class SensingAbility(private val environment: BotEnv) : AbilityBase(environment) {
+class SensingAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
     override val id = "sensing"
 
     @Suppress("unused")
-    fun searchEntity(range: Double, predicate: Function): List<WrappedEntity> =
+    fun searchEntity(range: Double, predicate: Function): List<EntitySnapshot> =
         block(EntitySearchTask(range, environment, predicate))
 
     @Suppress("unused")
-    fun searchBlockSnapshot(range: Double, predicate: Function): List<WrappedBlockState> =
+    fun searchBlock(range: Double, predicate: Function): List<BlockSnapshot> =
         block(BlockStateSearchTask(range, environment, predicate))
 }
 
-class BlockStateSearchTask(
-    private var range: Double,
-    private var environment: BotEnv,
-    private var predicate: Function?
-) : TickableTask<List<WrappedBlockState>> {
+class BlockStateSearchTask internal constructor(
+    private val environment: BotEnv
+) : TickableTask<List<BlockSnapshot>> {
     companion object {
-        const val ID = "search_block_entity"
+        const val ID = "search_block"
     }
 
+    private var range: Double = 0.0
+    private lateinit var predicate: Function
+
     @Suppress("unused")
-    constructor(environment: BotEnv) : this(0.0, environment, null)
+    constructor(range: Double, environment: BotEnv, predicate: Function) : this(environment) {
+        this.range = range
+        this.predicate = predicate
+    }
+
     override val id = ID
 
-    override fun tick(): PollResult<List<WrappedBlockState>> {
-        val predicator: (WrappedBlockState) -> Boolean = wrapJsFunction(predicate!!)
+    override fun tick(): PollResult<List<BlockSnapshot>> {
+        check(::predicate.isInitialized)
+        val predicator: (BlockSnapshot) -> Boolean = wrapJsFunction(predicate)
         return environment.entity.run {
             BlockPos.betweenClosedStream(AABB.ofSize(position(), range, range, range))
-                .map { WrappedBlockState(it, level.getBlockState(it)) }
-        }.filter(predicator).toList().let{ PollResult.done(it) }
+                .map { BlockSnapshot(it, level.getBlockState(it)) }
+        }.filter(predicator).toList().let { PollResult.done(it) }
     }
 
     override fun serialize() = CompoundTag().apply {
         putDouble("range", range)
-        putString("predicate", environment.addCache(predicate!!))
+        putString("predicate", environment.addCache(predicate))
     }
 
     override fun deserialize(tag: Tag) {
@@ -57,33 +63,38 @@ class BlockStateSearchTask(
 }
 
 class EntitySearchTask(
-    private var range: Double,
     private val environment: BotEnv,
-    private var predicate: Function?
-) : TickableTask<List<WrappedEntity>> {
+) : TickableTask<List<EntitySnapshot>> {
     companion object {
         const val ID = "search_entity"
     }
 
+    private lateinit var predicate: Function
+    private var range: Double = 0.0
+
     @Suppress("unused")
-    constructor(environment: BotEnv) : this(0.0, environment, null)
+    constructor(range: Double, environment: BotEnv, predicate: Function) : this(environment) {
+        this.range = range
+        this.predicate = predicate
+    }
+
     override val id = ID
 
-    override fun tick(): PollResult<List<WrappedEntity>> {
-        val predicator: (WrappedEntity) -> Boolean = wrapJsFunction(predicate!!)
+    override fun tick(): PollResult<List<EntitySnapshot>> {
+        check(::predicate.isInitialized)
+        val predicator: (EntitySnapshot) -> Boolean = wrapJsFunction(predicate)
         return environment.entity.level.getEntities(
             environment.entity,
             AABB.ofSize(environment.entity.position(), range, range, range)
-        ) {
-            predicator(WrappedEntity(it))
-        }.map {
-            WrappedEntity(it)
-        }.let { PollResult.done(it) }
+        ) { true }.map {
+            EntitySnapshot(it)
+        }.filter(predicator).let { PollResult.done(it) }
     }
 
     override fun serialize() = CompoundTag().apply {
+        check(::predicate.isInitialized)
         putDouble("range", range)
-        putString("predicate", environment.addCache(predicate!!))
+        putString("predicate", environment.addCache(predicate))
     }
 
     override fun deserialize(tag: Tag) {

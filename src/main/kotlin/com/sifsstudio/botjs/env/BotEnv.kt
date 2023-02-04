@@ -3,6 +3,7 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
+import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
 import com.sifsstudio.botjs.env.task.*
 import net.minecraft.nbt.CompoundTag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
@@ -27,11 +28,28 @@ class BotEnv(val entity: BotEntity) : Runnable {
     private lateinit var scope: ScriptableObject
     lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
+
+    //For quick matching
+    private val characteristics: MutableMap<EnvCharacteristic.Key<*>, EnvCharacteristic> = mutableMapOf()
     private var runFuture: Future<*>? = null
     var serializedFrame = ""
 
     fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
-    fun clearAbility() = abilities.clear()
+
+    inline fun install(ability: (BotEnv) -> AbilityBase) = install(ability(this))
+
+    fun characteristics(): Set<EnvCharacteristic.Key<*>> = characteristics.keys
+
+    operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = characteristics[key] as T?
+
+    operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T) {
+        characteristics[key] = char
+    }
+
+    fun clearUpgrades() {
+        abilities.clear()
+        characteristics.clear()
+    }
 
     override fun run() {
         running = true
@@ -58,7 +76,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 }
             } finally {
                 synchronized(this) {
-                    taskHandler.dispose()
+                    taskHandler.reset()
                 }
                 Context.exit()
                 running = false
@@ -93,7 +111,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 serializedFrame = ""
             } finally {
                 synchronized(this) {
-                    taskHandler.dispose()
+                    taskHandler.reset()
                 }
                 Context.exit()
                 running = false
@@ -112,17 +130,23 @@ class BotEnv(val entity: BotEntity) : Runnable {
         return result
     }
 
-    fun<T: Any> block(future: TaskFuture<T>): T {
+    fun <T : Any> block(future: TaskFuture<T>): T {
         val result = taskHandler.block(future)
-        if(!future.isDone) {
+        if (!future.isDone) {
             suspendExecution(null)
         }
         return result.result!!
     }
 
+    fun add() {
+        tickable = true
+        characteristics.values.forEach { it.onEnvAdded() }
+    }
+
     fun remove() {
         tickable = false
-        taskHandler.dispose()
+        taskHandler.reset()
+        characteristics.values.forEach { it.onEnvRemoved() }
     }
 
     private fun removeBotFromScope() {
@@ -170,7 +194,6 @@ class BotEnv(val entity: BotEntity) : Runnable {
     fun terminateExecution() {
         check(running)
         runFuture!!.cancel(true)
-        runFuture = null
     }
 
     @Synchronized

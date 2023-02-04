@@ -11,19 +11,18 @@ import net.minecraft.network.chat.ChatType
 import net.minecraft.network.chat.TextComponent
 import org.apache.logging.log4j.LogManager
 
-class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) {
+class OutputAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
+
     override val id = "output"
 
     @Suppress("unused")
     fun speak(content: String) {
         submit(SpeakTask(content, environment))
-        suspendIfNecessary(null)
     }
 
     @Suppress("unused")
-    fun log(content: () -> Unit) {
-        LOGGER.info(content())
-        suspendIfNecessary(null)
+    fun log(content: String) {
+        LOGGER.info(content)
     }
 
     companion object {
@@ -31,7 +30,8 @@ class OutputAbility(private val environment: BotEnv) : AbilityBase(environment) 
     }
 }
 
-class SpeakTask(private var content: String, private val environment: BotEnv) : TickableTask<Unit> {
+class SpeakTask internal constructor(private var content: String, private val environment: BotEnv) :
+    TickableTask<Unit> {
     companion object {
         const val ID = "speak"
     }

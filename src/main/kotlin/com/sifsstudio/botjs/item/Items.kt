@@ -1,10 +1,12 @@
 package com.sifsstudio.botjs.item
 
 import com.sifsstudio.botjs.BotJS
+import com.sifsstudio.botjs.block.Blocks
 import com.sifsstudio.botjs.env.api.ability.*
-import net.minecraft.world.item.CreativeModeTab
+import com.sifsstudio.botjs.env.intrinsic.ConnectionProperties
+import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
+import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
-import net.minecraft.world.item.ItemStack
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.ForgeRegistries
 import thedarkcolour.kotlinforforge.forge.registerObject
@@ -12,39 +14,57 @@ import thedarkcolour.kotlinforforge.forge.registerObject
 object Items {
     val REGISTRY: DeferredRegister<Item> = DeferredRegister.create(ForgeRegistries.ITEMS, BotJS.ID)
 
-    val TAB = object : CreativeModeTab("botjs") {
-        override fun makeIcon(): ItemStack {
-            return WRENCH.defaultInstance
-        }
-    }
-
     val TIMING_UPGRADE: Item
-            by REGISTRY.registerObject("timing_upgrade") { UpgradeItem.withAbility { TimingAbility(it) } }
+            by REGISTRY.registerObject("timing_upgrade") {
+                UpgradeItem.applies { it.install(::TimingAbility) }
+            }
 
     val MOVEMENT_UPGRADE: Item
-            by REGISTRY.registerObject("movement_upgrade") { UpgradeItem.withAbility { MovementAbility(it) } }
+            by REGISTRY.registerObject("movement_upgrade") {
+                UpgradeItem.applies { it.install(::MovementAbility) }
+            }
 
     val OUTPUT_UPGRADE: Item
-            by REGISTRY.registerObject("output_upgrade") { UpgradeItem.withAbility { OutputAbility(it) } }
+            by REGISTRY.registerObject("output_upgrade") {
+                UpgradeItem.applies { it.install(::OutputAbility) }
+            }
 
     val INTERACTION_UPGRADE: Item
-            by REGISTRY.registerObject("interaction_upgrade") { UpgradeItem.withAbility { InteractionAbility(it) } }
+            by REGISTRY.registerObject("interaction_upgrade") {
+                UpgradeItem.applies { it.install(::InteractionAbility) }
+            }
 
     val SENSING_UPGRADE: Item
-            by REGISTRY.registerObject("sensing_upgrade") { UpgradeItem.withAbility { SensingAbility(it) } }
+            by REGISTRY.registerObject("sensing_upgrade") {
+                UpgradeItem.applies { it.install(::SensingAbility) }
+            }
+
+    val CONNECTION_UPGRADE: Item
+            by REGISTRY.registerObject("connection_upgrade") {
+                UpgradeItem.applies {
+                    it.install(::ConnectionAbility)
+                    it[EnvCharacteristic.CONNECTION] =
+                        ConnectionProperties(it, 128.0, it.entity.stringUUID, mutableMapOf())
+                }
+            }
 
     val WRENCH: Item
             by REGISTRY.registerObject("wrench") {
-                Item(Item.Properties().stacksTo(1).tab(TAB))
+                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
             }
 
     val PROGRAMMER: Item
             by REGISTRY.registerObject("programmer") {
-                Item(Item.Properties().stacksTo(1).tab(TAB))
+                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
             }
 
     val SWITCH: Item
             by REGISTRY.registerObject("switch") {
-                Item(Item.Properties().stacksTo(1).tab(TAB))
+                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
+            }
+
+    val CONTROLLER_BLOCK: BlockItem
+            by REGISTRY.registerObject("controller_block") {
+                BlockItem(Blocks.CONTROLLER_BLOCK, Item.Properties().tab(BotJS.TAB))
             }
 }

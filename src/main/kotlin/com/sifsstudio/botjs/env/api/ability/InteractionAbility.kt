@@ -1,15 +1,16 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.task.TickableTask
-import com.sifsstudio.botjs.env.api.wrapper.WrappedEntity
 import com.sifsstudio.botjs.util.extinguishFire
 import com.sifsstudio.botjs.util.plus
 import com.sifsstudio.botjs.util.times
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.IntTag
 import net.minecraft.nbt.NbtUtils
 import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
@@ -19,8 +20,10 @@ import net.minecraftforge.common.ForgeHooks
 import net.minecraftforge.common.util.FakePlayer
 import net.minecraftforge.common.util.FakePlayerFactory
 import net.minecraftforge.eventbus.api.Event
+import java.util.*
 
-class InteractionAbility(private val environment: BotEnv) : AbilityBase(environment) {
+class InteractionAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
+
     override val id = "interaction"
 
     @Suppress("unused")
@@ -29,19 +32,55 @@ class InteractionAbility(private val environment: BotEnv) : AbilityBase(environm
     }
 
     @Suppress("unused")
-    fun attack(entity: WrappedEntity) {
-        val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
-        fakePlayer.setPos(environment.entity.position())
-        fakePlayer.attack(entity.entity)
-        suspendIfNecessary(null)
+    fun attack(entity: EntitySnapshot): TaskFuture<Boolean> {
+        return submit(AttackTask(entity.id, environment))
     }
 
     @Suppress("unused")
-    fun sweepAttack() {
+    fun sweepAttack(): TaskFuture<Boolean> {
+        return submit(AttackTask(null, environment))
+    }
+}
+
+class AttackTask internal constructor(private val environment: BotEnv) : TickableTask<Boolean> {
+    companion object {
+        const val ID = "attack"
+    }
+
+    private var entity: Int? = null
+
+    constructor(entity: Int?, environment: BotEnv) : this(environment) {
+        this.entity = entity
+    }
+
+    override val id = ID
+
+    override fun tick(): PollResult<Boolean> {
         val fakePlayer = FakePlayerFactory.getMinecraft(environment.entity.level as ServerLevel)
         fakePlayer.setPos(environment.entity.position())
-        fakePlayer.sweepAttack()
-        suspendIfNecessary(null)
+        return if (entity == null) {
+            fakePlayer.sweepAttack()
+            PollResult.done(true)
+        } else {
+            val ent = environment.entity.level.getEntity(entity!!)
+            if (ent == null) {
+                PollResult.done(false)
+            } else {
+                fakePlayer.attack(ent)
+                PollResult.done(true)
+            }
+        }
+    }
+
+    override fun serialize() = CompoundTag().apply {
+        entity?.let { putInt("id", it) }
+    }
+
+    override fun deserialize(tag: Tag) {
+        val compound = tag as CompoundTag
+        compound.get("id")?.let {
+            entity = (it as IntTag).asInt
+        }
     }
 }
 

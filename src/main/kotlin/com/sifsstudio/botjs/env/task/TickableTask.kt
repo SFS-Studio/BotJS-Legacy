@@ -11,7 +11,7 @@ import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.io.ObjectStreamException
 
-interface TickableTask<T : Any> {
+interface TickableTask<out T : Any> {
     val id: String
 
     fun tick(): PollResult<T>
@@ -27,16 +27,16 @@ interface TickableTask<T : Any> {
         fun deserialize(compound: CompoundTag, environment: BotEnv): TickableTask<*>? {
             return if (!compound.isEmpty) {
                 val task = TaskRegistry.constructTask(compound.getString("id"), environment)!!
-                task.deserialize(compound.get("task")!!)
+                task.deserialize(compound.get("data")!!)
                 task
             } else null
         }
     }
 }
 
-class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
+class PollResult<out T : Any>(val isDone: Boolean, val result: T?) {
     companion object {
-        fun <T : Any> done(result: T) = PollResult(true, result)
+        fun <T : Any> done(result: T): PollResult<T> = PollResult(true, result)
 
         fun <T : Any> pending() = PollResult<T>(false, null)
 
@@ -44,14 +44,18 @@ class PollResult<T : Any>(val isDone: Boolean, val result: T?) {
     }
 }
 
-class TaskFuture<T : Any> internal constructor(): java.io.Serializable {
+class TaskFuture<out T : Any> internal constructor() : java.io.Serializable {
     var isDone: Boolean = false
         private set
-    lateinit var result: T
-        private set
+
+    private lateinit var result: T
 
     @JvmField
     internal var ordinal = -1
+
+    fun getResult(): T {
+        return result
+    }
 
     @Synchronized
     internal fun done(result: Any) {
@@ -65,38 +69,44 @@ class TaskFuture<T : Any> internal constructor(): java.io.Serializable {
     private fun writeObject(stream: ObjectOutputStream) {
         check(stream is EnvOutputStream)
         check(ordinal >= 0)
-        stream.defaultWriteObject()
+        stream.writeBoolean(isDone)
+        if (::result.isInitialized) {
+            stream.writeBoolean(true)
+            stream.writeObject(result)
+        } else {
+            stream.writeBoolean(false)
+        }
+        stream.writeInt(ordinal)
     }
 
     @Throws(IOException::class, ClassNotFoundException::class)
     private fun readObject(stream: ObjectInputStream) {
         check(stream is EnvInputStream)
-        stream.defaultReadObject()
+        isDone = stream.readBoolean()
+        if (stream.readBoolean()) {
+            result = stream.readObject() as T
+        }
+        ordinal = stream.readInt()
         check(ordinal >= -1)
         stream.env.taskHandler.associate(this)
     }
 
     @Throws(ObjectStreamException::class)
     private fun readObjectNoData() {
-        throw NotImplementedError()
+        throw UnsupportedOperationException()
     }
-}
 
-fun<T: Any> Parker.join(it: TaskFuture<T>): PollResult<T> {
-    synchronized(it) {
-        if (it.isDone) {
-            return PollResult.done(it.result)
+    internal fun join(it: Parker): PollResult<T> {
+        synchronized(it) {
+            if (isDone) {
+                return PollResult.done(result)
+            }
+        }
+        it.park()
+        return synchronized(this) {
+            if (!isDone) {
+                PollResult.pending()
+            } else PollResult.done(result)
         }
     }
-    park()
-    return synchronized(this) {
-        if (!it.isDone) {
-            PollResult.pending()
-        } else PollResult.done(it.result)
-    }
-}
-
-fun suspend(parker: Parker) {
-    check(parker.parking)
-    parker.unpark()
 }

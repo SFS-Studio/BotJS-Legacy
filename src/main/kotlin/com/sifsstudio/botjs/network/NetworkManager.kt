@@ -23,15 +23,15 @@ object NetworkManager {
     fun registerPackets() {
         registerPacket(
             ServerboundScriptChangedPacket::class,
-            ServerboundScriptChangedPacket.Companion::encode,
-            ServerboundScriptChangedPacket.Companion::decode,
-            ServerboundScriptChangedPacket.Companion::handle
+            ServerboundScriptChangedPacket::encode,
+            ServerboundScriptChangedPacket::decode,
+            ServerboundScriptChangedPacket::handle
         )
         registerPacket(
             ClientboundOpenProgrammerScreenPacket::class,
-            ClientboundOpenProgrammerScreenPacket.Companion::encode,
-            ClientboundOpenProgrammerScreenPacket.Companion::decode,
-            ClientboundOpenProgrammerScreenPacket.Companion::handle
+            ClientboundOpenProgrammerScreenPacket::encode,
+            ClientboundOpenProgrammerScreenPacket::decode,
+            ClientboundOpenProgrammerScreenPacket::handle
         )
     }
 

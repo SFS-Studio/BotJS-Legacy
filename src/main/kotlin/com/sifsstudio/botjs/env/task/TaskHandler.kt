@@ -32,7 +32,7 @@ class TaskHandler(private val env: BotEnv) {
         tickable = true
         val pendingTask = pendingTask
         return if (pendingTask != null && !pendingTask.second) {
-            val res = parker.join(pendingTask.first.future)
+            val res = pendingTask.first.future.join(parker)
             if (!res.isDone) {
                 Unit
             } else res.result
@@ -59,16 +59,17 @@ class TaskHandler(private val env: BotEnv) {
             if (result.isDone) {
                 this.pendingTask = null
                 pendingFuture.first.future.done(result.result!!)
-                suspend(parker)
+                check(parker.parking)
+                parker.unpark()
             }
         }
     }
 
     @Synchronized
-    fun dispose() {
+    fun reset() {
         if (pendingTask != null) {
-            if(parker.parking) {
-                suspend(parker)
+            if (parker.parking) {
+                parker.unpark()
             }
             pendingTask = null
         }
@@ -99,14 +100,18 @@ class TaskHandler(private val env: BotEnv) {
 
     fun <T : Any> block(future: TaskFuture<T>): PollResult<T> {
         synchronized(this) {
-            tickingTasks.removeIf {
-                if(it.future == future) {
-                    pendingTask = Pair(it, true)
-                    true
-                } else false
+            tickingTasks.iterator().run {
+                while (hasNext()) {
+                    val now = next()
+                    if (now.future == future) {
+                        pendingTask = Pair(now, true)
+                        remove()
+                        break
+                    }
+                }
             }
         }
-        return parker.join(future)
+        return future.join(parker)
     }
 
     fun storeReturn(future: TaskFuture<*>) {

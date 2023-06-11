@@ -1,24 +1,28 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.api.conn.Remote
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
 import com.sifsstudio.botjs.env.intrinsic.conn.MessageManager
 import com.sifsstudio.botjs.env.intrinsic.conn.ReachabilityTest
 import com.sifsstudio.botjs.env.intrinsic.conn.RemoteLocator
 
 @Suppress("unused")
-class ConnectionAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
+class NetworkAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
 
-    override val id = "connection"
+    override val id = "network"
 
     private val property = environment[EnvCharacteristic.CONNECTION]!!
 
     fun scan(): Set<String> {
-        return RemoteLocator.findNearby(
-            environment,
-            environment[EnvCharacteristic.CONNECTION]!!.range,
-            ReachabilityTest(property.remote)
-        ).mapTo(HashSet()) { it.uid }
+        return mutableSetOf<Remote>().apply {
+            RemoteLocator.findNearby(
+                property.remote,
+                property.range,
+                this,
+                ReachabilityTest(property.remote)
+            )
+        }.mapTo(mutableSetOf()) { it.uid.toString() }
     }
 
     fun send(remote: String, message: String): Boolean {

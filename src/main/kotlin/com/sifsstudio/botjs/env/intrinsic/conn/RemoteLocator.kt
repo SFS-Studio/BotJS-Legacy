@@ -1,6 +1,5 @@
 package com.sifsstudio.botjs.env.intrinsic.conn
 
-import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.api.conn.Remote
 import com.sifsstudio.botjs.util.dToLessEq
 import com.sifsstudio.botjs.util.position
@@ -9,32 +8,48 @@ import net.minecraft.core.Position
 
 object RemoteLocator {
 
-    val loadedRemotes: MutableSet<Remote> = mutableSetOf()
+    private val activeRemotes: MutableSet<Remote> = mutableSetOf()
 
-    fun dispose(remote: Remote) {
-        loadedRemotes.remove(remote)
+    fun remove(remote: Remote) {
+        activeRemotes.remove(remote)
     }
 
     fun add(remote: Remote) {
-        loadedRemotes.add(remote)
+        activeRemotes.add(remote)
     }
 
-    inline fun findNearby(pos: Position, distance: Double, predicate: (Remote) -> Boolean): MutableSet<Remote> {
-        val result = mutableSetOf<Remote>()
-        for (entry in loadedRemotes) {
+    fun findNearby(
+        pos: Position,
+        distance: Double,
+        collection: MutableCollection<Remote>,
+        predicate: (Remote) -> Boolean
+    ) {
+        for (entry in activeRemotes) {
             if (pos.dToLessEq(entry.position, distance) && predicate(entry)) {
-                result.add(entry)
+                collection.add(entry)
             }
         }
-        return result
     }
 
-    fun findNearby(pos: BlockPos, distance: Double, predicate: (Remote) -> Boolean) =
-        findNearby(pos.position, distance, predicate)
+    fun findNearby(
+        pos: BlockPos,
+        distance: Double,
+        collection: MutableCollection<Remote>,
+        predicate: (Remote) -> Boolean
+    ) =
+        findNearby(pos.position, distance, collection, predicate)
 
-    fun findNearby(env: BotEnv, distance: Double, predicate: (Remote) -> Boolean) =
-        findNearby(env.entity.position(), distance) { predicate(it) && !(it is RemoteEnv && it.environment == env) }
+    fun findNearby(here: Remote, distance: Double, collection: MutableCollection<Remote>) =
+        findNearby(here.position, distance, collection) { it != here }
+
+    fun findNearby(
+        here: Remote,
+        distance: Double,
+        collection: MutableCollection<Remote>,
+        predicate: (Remote) -> Boolean
+    ) =
+        findNearby(here.position, distance, collection) { predicate(it) && it != here }
 
     fun searchRemote(here: Remote, uid: String): Remote? =
-        loadedRemotes.find { it.uid == uid }?.takeIf { ReachabilityTest(here, it) }
+        activeRemotes.find { it.uid.toString() == uid }?.takeIf { ReachabilityTest(here, it) }
 }

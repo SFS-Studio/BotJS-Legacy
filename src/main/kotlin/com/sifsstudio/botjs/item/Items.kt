@@ -42,9 +42,9 @@ object Items {
     val CONNECTION_UPGRADE: Item
             by REGISTRY.registerObject("connection_upgrade") {
                 UpgradeItem.applies {
-                    it.install(::ConnectionAbility)
+                    it.install(::NetworkAbility)
                     it[EnvCharacteristic.CONNECTION] =
-                        ConnectionProperties(it, 128.0, it.entity.stringUUID, mutableMapOf())
+                        ConnectionProperties(128.0, mutableMapOf())
                 }
             }
 

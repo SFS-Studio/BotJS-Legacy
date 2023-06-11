@@ -10,5 +10,5 @@ object Blocks {
     val REGISTRY: DeferredRegister<Block> = DeferredRegister.create(ForgeRegistries.BLOCKS, BotJS.ID)
 
     val CONTROLLER_BLOCK: Block
-            by REGISTRY.registerObject("controller") { ControllerBlock() }
+            by REGISTRY.registerObject("wireless_ap") { WirelessAPBlock() }
 }

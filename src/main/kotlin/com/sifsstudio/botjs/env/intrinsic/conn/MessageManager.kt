@@ -10,7 +10,7 @@ object MessageManager {
         MultimapBuilder.hashKeys().linkedHashSetValues().build()
 
     fun send(sender: Remote, receiver: Remote, message: String) {
-        messages.put(receiver, IncomingMessage(sender, message))
+        messages.put(receiver, IncomingMessage(sender.uid, message))
     }
 
     fun poll(receiver: Remote): Set<IncomingMessage> = messages.removeAll(receiver)

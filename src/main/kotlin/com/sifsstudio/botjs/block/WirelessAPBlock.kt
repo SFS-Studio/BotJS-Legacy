@@ -1,8 +1,9 @@
 package com.sifsstudio.botjs.block
 
 import com.sifsstudio.botjs.block.entity.BlockEntities
-import com.sifsstudio.botjs.block.entity.ControllerBlockEntity
+import com.sifsstudio.botjs.block.entity.WAPBlockEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
@@ -18,18 +19,19 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
+import net.minecraft.world.level.block.state.properties.Property
 import net.minecraft.world.level.material.Material
 import net.minecraft.world.phys.BlockHitResult
 
-class ControllerBlock : BaseEntityBlock(Properties.of(Material.METAL)) {
-    override fun newBlockEntity(pPos: BlockPos, pState: BlockState) = ControllerBlockEntity(pPos, pState)
+class WirelessAPBlock : BaseEntityBlock(Properties.of(Material.METAL)) {
+    override fun newBlockEntity(pPos: BlockPos, pState: BlockState) = WAPBlockEntity(pPos, pState)
 
     override fun <T : BlockEntity?> getTicker(
         pLevel: Level,
         pState: BlockState,
         pBlockEntityType: BlockEntityType<T>
     ): BlockEntityTicker<T>? =
-        createTickerHelper(pBlockEntityType, BlockEntities.CONTROLLER, ControllerBlockEntity.Ticker)
+        createTickerHelper(pBlockEntityType, BlockEntities.CONTROLLER, WAPBlockEntity.Ticker)
 
     override fun createBlockStateDefinition(pBuilder: StateDefinition.Builder<Block?, BlockState?>) {
         pBuilder.add(FACING, ACTIVE)
@@ -51,18 +53,16 @@ class ControllerBlock : BaseEntityBlock(Properties.of(Material.METAL)) {
         pHand: InteractionHand,
         pHit: BlockHitResult
     ): InteractionResult {
-        if (pLevel.isClientSide) {
-            return InteractionResult.SUCCESS
+        return if (pLevel.isClientSide) {
+            InteractionResult.SUCCESS
         } else {
-            /*pPlayer.openMenu(SimpleMenuProvider({id, inv, player ->
 
-            }))*/
-            return InteractionResult.CONSUME
+            InteractionResult.CONSUME
         }
     }
 
     companion object {
-        val FACING = BlockStateProperties.HORIZONTAL_FACING
-        val ACTIVE = BooleanProperty.create("active")
+        val FACING: Property<Direction> = BlockStateProperties.HORIZONTAL_FACING
+        val ACTIVE: Property<Boolean> = BooleanProperty.create("active")
     }
 }

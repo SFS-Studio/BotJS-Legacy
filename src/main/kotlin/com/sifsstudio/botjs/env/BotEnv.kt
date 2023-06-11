@@ -24,7 +24,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
     var running = false
         private set
     private var tickable = false
-    val taskHandler: TaskHandler = TaskHandler(this)
+    val taskHandler = TaskHandler(this)
     private lateinit var scope: ScriptableObject
     lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
@@ -42,12 +42,18 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = characteristics[key] as T?
 
-    operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T) {
-        characteristics[key] = char
+    operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T?) {
+        if (char == null) {
+            characteristics.remove(key)?.onRemovedFromEnv(this)
+        } else {
+            characteristics[key] = char
+            char.onAddedToEnv(this)
+        }
     }
 
     fun clearUpgrades() {
         abilities.clear()
+        characteristics.forEach { (_, v) -> v.onRemovedFromEnv(this) }
         characteristics.clear()
     }
 
@@ -58,6 +64,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         scope = context.initStandardObjects().apply {
             defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
         }
+        characteristics.values.forEach { it.onActive(this) }
         if (serializedFrame.isEmpty()) {
             try {
                 val botScript = context.compileString(script, "Bot Code", 0, null)
@@ -110,6 +117,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 }
                 serializedFrame = ""
             } finally {
+                characteristics.values.forEach { it.onDeactive(this) }
                 synchronized(this) {
                     taskHandler.reset()
                 }
@@ -140,20 +148,18 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     fun add() {
         tickable = true
-        characteristics.values.forEach { it.onEnvAdded() }
     }
 
     fun remove() {
         tickable = false
         taskHandler.reset()
-        characteristics.values.forEach { it.onEnvRemoved() }
     }
 
     private fun removeBotFromScope() {
         scope.delete("bot")
     }
 
-    fun suspendIfNecessary(data: Any?) {
+    private fun suspendIfNecessary(data: Any?) {
         if (!tickable) {
             suspendExecution(data)
         }

@@ -20,8 +20,8 @@ data class ServerboundScriptChangedPacket(
         fun handle(msg: ServerboundScriptChangedPacket, ctx: Supplier<NetworkEvent.Context>) {
             ctx.get().apply {
                 enqueueWork {
-                    val bot = sender!!.getLevel().getEntity(msg.entityId) as BotEntity
-                    bot.environment.script = msg.script
+                    val bot = sender!!.getLevel().getEntity(msg.entityId) as BotEntity?
+                    bot?.environment?.script = msg.script
                 }
                 packetHandled = true
             }

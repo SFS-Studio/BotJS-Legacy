@@ -1,6 +1,5 @@
 package com.sifsstudio.botjs.item
 
-import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
 import net.minecraft.world.item.Item
 

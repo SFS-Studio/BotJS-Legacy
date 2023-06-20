@@ -3,13 +3,15 @@ package com.sifsstudio.botjs.env.task
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.EnvInputStream
 import com.sifsstudio.botjs.env.EnvOutputStream
-import com.sifsstudio.botjs.util.concurrent.Parker
+import com.sifsstudio.botjs.env.Parker
+import kotlinx.coroutines.Job
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import java.io.IOException
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.io.ObjectStreamException
+import kotlin.coroutines.coroutineContext
 
 interface TickableTask<out T : Any> {
     val id: String
@@ -96,10 +98,15 @@ class TaskFuture<out T : Any> internal constructor() : java.io.Serializable {
         throw UnsupportedOperationException()
     }
 
-    internal fun join(it: Parker): PollResult<T> {
+    internal suspend fun join(it: Parker): PollResult<T> {
         synchronized(it) {
             if (isDone) {
                 return PollResult.done(result)
+            }
+        }
+        coroutineContext[Job]?.invokeOnCompletion { t ->
+            if(t is InterruptedException) {
+                it.interrupt()
             }
         }
         it.park()

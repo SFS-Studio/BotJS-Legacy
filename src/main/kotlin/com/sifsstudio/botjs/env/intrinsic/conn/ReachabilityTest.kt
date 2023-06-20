@@ -12,7 +12,7 @@ object ReachabilityTest {
         return d <= d1 && d <= d2
     }
 
-    operator fun invoke(`this`: Remote): (Remote) -> Boolean {
-        return { this(`this`, it) }
+    operator fun invoke(here: Remote): (Remote) -> Boolean {
+        return { this(here, it) }
     }
 }

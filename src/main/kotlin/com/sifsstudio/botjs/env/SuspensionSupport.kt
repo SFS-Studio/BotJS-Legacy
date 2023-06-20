@@ -4,7 +4,7 @@ import org.mozilla.javascript.Script
 import org.mozilla.javascript.ScriptableObject
 import java.io.Closeable
 
-typealias SuspendBlock = suspend () -> Any
+typealias SuspendBlock<T> = suspend () -> T
 typealias SuspendContextBlock = SuspensionContext.(Context) -> Unit
 
 inline fun SuspensionContext.useWithContext(ctx: Context, block: SuspendContextBlock) {
@@ -32,7 +32,11 @@ class SuspensionContext : Closeable {
         @JvmField
         val CONTEXT: ThreadLocal<SuspensionContext> = ThreadLocal()
 
-        fun invokeSuspend(block: SuspendBlock) {
+        /**
+         * Cause the current Context to suspend and notify the underlying
+         * SuspensionContext object to handle the suspend function call
+         */
+        fun<T : Any> invokeSuspend(block: SuspendBlock<T>): T {
             val ctx = CONTEXT.get()
             check(ctx != null) { "There is no SuspensionContext bound to current thread" }
             ctx.breakpoint = block
@@ -43,7 +47,7 @@ class SuspensionContext : Closeable {
 
     private val thread: Thread
 
-    private var breakpoint: SuspendBlock? = null
+    private var breakpoint: SuspendBlock<Any>? = null
 
     init {
         check(CONTEXT.get() == null) { "There is already a SuspensionContext bound to current thread" }
@@ -55,9 +59,10 @@ class SuspensionContext : Closeable {
         return try {
             executeScriptWithContinuations(script, scope)
         } catch (suspend: ContinuationPending) {
-            val breakpoint = breakpoint ?: throw suspend
+            val bkp = breakpoint ?: throw suspend
+            breakpoint = null
             val rhinoCont = suspend.continuation
-            val result = breakpoint()
+            val result = bkp.invoke()
             resumeSuspend(rhinoCont, scope, result)
         }
     }
@@ -69,9 +74,10 @@ class SuspensionContext : Closeable {
             try {
                 return resumeContinuation(rhinoCont, scope, result)
             } catch (suspend: ContinuationPending) {
-                val breakpoint = breakpoint ?: throw suspend
+                val bkp = breakpoint ?: throw suspend
+                breakpoint = null
                 rhinoCont = suspend.continuation
-                result = breakpoint()
+                result = bkp.invoke()
             }
         }
     }

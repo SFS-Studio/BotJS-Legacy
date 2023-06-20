@@ -1,5 +1,6 @@
 package com.sifsstudio.botjs.env.api.ability
 
+import SuspensionContext
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TaskFuture
@@ -14,12 +15,11 @@ class MovementAbility internal constructor(environment: BotEnv) : AbilityBase(en
     override val id = "movement"
 
     @Suppress("unused")
-    fun moveTo(x: Double, y: Double, z: Double): TaskFuture<Boolean> {
-        return submit(DestinationMovementTask(x, y, z, environment))
-    }
+    fun moveTo(x: Double, y: Double, z: Double) =
+        submit(DestinationMovementTask(x, y, z, environment))
 
     @Suppress("unused")
-    fun lookAt(x: Double, y: Double, z: Double) {
+    fun lookAt(x: Double, y: Double, z: Double) = SuspensionContext.invokeSuspend {
         block(LookAtTask(x,y,z, environment))
     }
 }

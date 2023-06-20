@@ -1,5 +1,6 @@
 package com.sifsstudio.botjs.env.api.ability
 
+import SuspensionContext
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
@@ -12,7 +13,7 @@ class TimingAbility internal constructor(environment: BotEnv) : AbilityBase(envi
     @Suppress("unused")
     fun sleep(ticks: Int) {
         if (ticks >= 1) {
-            block(SleepTask(ticks))
+            SuspensionContext.invokeSuspend { block(SleepTask(ticks)) }
         }
     }
 }

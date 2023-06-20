@@ -5,20 +5,19 @@ import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
 import com.sifsstudio.botjs.env.task.*
+import kotlinx.coroutines.*
 import net.minecraft.nbt.CompoundTag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
 import org.apache.commons.codec.binary.Base64
 import org.mozilla.javascript.*
+import suspendableContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-class BotEnv(val entity: BotEntity) : Runnable {
+class BotEnv(val entity: BotEntity) {
 
     var script = ""
     var running = false
@@ -31,7 +30,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     //For quick matching
     private val characteristics: MutableMap<EnvCharacteristic.Key<*>, EnvCharacteristic> = mutableMapOf()
-    private var runFuture: Future<*>? = null
+    private var runJob: Job? = null
     var serializedFrame = ""
 
     fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
@@ -57,72 +56,73 @@ class BotEnv(val entity: BotEntity) : Runnable {
         characteristics.clear()
     }
 
-    override fun run() {
+    suspend fun run() {
         running = true
-        val context = Context.enter()
-        context.optimizationLevel = -1
-        scope = context.initStandardObjects().apply {
-            defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
-        }
-        characteristics.values.forEach { it.onActive(this) }
-        if (serializedFrame.isEmpty()) {
-            try {
-                val botScript = context.compileString(script, "Bot Code", 0, null)
-                context.executeScriptWithContinuations(botScript, scope)
-            } catch (pending: ContinuationPending) {
-                serializedFrame = getSerializedFrame(context, pending.continuation)
-                if (pending.applicationState != null) {
-                    check(pending.applicationState is TaskFuture<*>)
-                    taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
+        suspendableContext { context ->
+            context.optimizationLevel = -1
+            characteristics.values.forEach { it.onActive(this@BotEnv) }
+            if (serializedFrame.isEmpty()) {
+                scope = context.initStandardObjects().apply {
+                    defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
                 }
-            } catch (exception: Exception) {
-                if (exception is WrappedException && exception.wrappedException is InterruptedException) {
-                    // DO NOTHING
-                } else {
-                    exception.printStackTrace()
+                try {
+                    val botScript = context.compileString(script, "Bot Code", 0, null)
+                    context.runScriptSuspend(botScript, scope)
+                } catch (pending: ContinuationPending) {
+                    scope.delete("bot") // Depends on the bot entity
+                    serializedFrame = getSerializedFrame(context, pending.continuation)
+                    if (pending.applicationState != null) {
+                        check(pending.applicationState is TaskFuture<*>)
+                        taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
+                    }
+                } catch (exception: Exception) {
+                    if (exception is WrappedException && exception.wrappedException is InterruptedException) {
+                        // DO NOTHING
+                    } else {
+                        exception.printStackTrace()
+                    }
+                } finally {
+                    synchronized(this) {
+                        taskHandler.reset()
+                    }
+                    running = false
                 }
-            } finally {
-                synchronized(this) {
-                    taskHandler.reset()
+            } else {
+                val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
+                val sis = EnvInputStream(this@BotEnv, bais, scope)
+                val continuation = sis.readObject()
+                scope = (sis.readObject() as ScriptableObject).apply {
+                    defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
                 }
-                Context.exit()
-                running = false
-            }
-        } else {
-            val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
-            val sis = EnvInputStream(this, bais, scope)
-            val continuation = sis.readObject()
-            scope = (sis.readObject() as ScriptableObject).apply {
-                defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
-            }
-            cacheScope = sis.readObject() as NativeObject
-            try {
-                val ret = taskHandler.resume()
-                if(ret == Unit) {
-                    return
+                cacheScope = sis.readObject() as NativeObject
+                try {
+                    val ret = taskHandler.resume()
+                    if (ret == Unit) {
+                        return
+                    }
+                    context.resumeSuspend(continuation, scope, ret)
+                    serializedFrame = ""
+                } catch (pending: ContinuationPending) {
+                    scope.delete("bot") // Depends on the bot entity
+                    serializedFrame = getSerializedFrame(context, pending.continuation)
+                    if (pending.applicationState != null) {
+                        check(pending.applicationState is TaskFuture<*>)
+                        taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
+                    }
+                } catch (exception: Exception) {
+                    if ((exception is WrappedException && exception.wrappedException is InterruptedException) || exception is InterruptedException) {
+                        // DO NOTHING
+                    } else {
+                        exception.printStackTrace()
+                    }
+                    serializedFrame = ""
+                } finally {
+                    characteristics.values.forEach { it.onDeactive(this@BotEnv) }
+                    synchronized(this) {
+                        taskHandler.reset()
+                    }
+                    running = false
                 }
-                context.resumeContinuation(continuation, scope, ret)
-                serializedFrame = ""
-            } catch (pending: ContinuationPending) {
-                serializedFrame = getSerializedFrame(context, pending.continuation)
-                if (pending.applicationState != null) {
-                    check(pending.applicationState is TaskFuture<*>)
-                    taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
-                }
-            } catch (exception: Exception) {
-                if ((exception is WrappedException && exception.wrappedException is InterruptedException) || exception is InterruptedException) {
-                    // DO NOTHING
-                } else {
-                    exception.printStackTrace()
-                }
-                serializedFrame = ""
-            } finally {
-                characteristics.values.forEach { it.onDeactive(this) }
-                synchronized(this) {
-                    taskHandler.reset()
-                }
-                Context.exit()
-                running = false
             }
         }
     }
@@ -134,11 +134,13 @@ class BotEnv(val entity: BotEntity) : Runnable {
 
     fun<T: Any> submit(task: TickableTask<T>): TaskFuture<T> {
         val result = taskHandler.submit(task)
-        suspendIfNecessary(task)
+        if (!tickable) {
+            suspendExecution(result)
+        }
         return result
     }
 
-    fun <T : Any> block(future: TaskFuture<T>): T {
+    suspend fun <T : Any> block(future: TaskFuture<T>): T {
         val result = taskHandler.block(future)
         if (!future.isDone) {
             suspendExecution(null)
@@ -155,18 +157,7 @@ class BotEnv(val entity: BotEntity) : Runnable {
         taskHandler.reset()
     }
 
-    private fun removeBotFromScope() {
-        scope.delete("bot")
-    }
-
-    private fun suspendIfNecessary(data: Any?) {
-        if (!tickable) {
-            suspendExecution(data)
-        }
-    }
-
     private fun suspendExecution(data: Any?) {
-        removeBotFromScope()
         val cx = Context.getCurrentContext()
         val pending = cx.captureContinuation()
         pending.applicationState = data
@@ -199,15 +190,17 @@ class BotEnv(val entity: BotEntity) : Runnable {
     @Synchronized
     fun terminateExecution() {
         check(running)
-        runFuture!!.cancel(true)
+        runJob?.cancel()
     }
 
     @Synchronized
     fun launch() {
-        if (runFuture?.isDone == false) {
+        if (runJob?.isCompleted == false) {
             return
         }
-        runFuture = EXECUTOR_SERVICE!!.submit(this)
+        runJob = BOT_SCOPE.launch {
+            run()
+        }
     }
 
     companion object {
@@ -222,23 +215,25 @@ class BotEnv(val entity: BotEntity) : Runnable {
                 return super.hasFeature(cx, featureIndex)
             }
         }
-        var EXECUTOR_SERVICE: ExecutorService? = null
+        private var BOT_DISPATCHER: CoroutineDispatcher? = null
+        private val BOT_SCOPE = CoroutineScope(SupervisorJob())
 
         init {
             ContextFactory.initGlobal(CTX_FACTORY)
         }
 
         fun onServerSetup(@Suppress("UNUSED_PARAMETER") event: ServerAboutToStartEvent) {
-            EXECUTOR_SERVICE = Executors.newCachedThreadPool {
+            BOT_DISPATCHER = Executors.newCachedThreadPool {
                 Thread(it, "BotJS-BotThread-${BOT_THREAD_ID.getAndIncrement()}")
-            }
+            }.asCoroutineDispatcher()
         }
 
         fun onServerStop(@Suppress("UNUSED_PARAMETER") event: ServerStoppedEvent) {
-            EXECUTOR_SERVICE!!.awaitTermination(500, TimeUnit.MILLISECONDS)
-            EXECUTOR_SERVICE!!.shutdownNow()
+            val dispatcher = BOT_DISPATCHER
             BOT_THREAD_ID.set(0)
-            EXECUTOR_SERVICE = null
+            if(dispatcher != null) {
+                BOT_SCOPE.cancel()
+            }
         }
     }
 }

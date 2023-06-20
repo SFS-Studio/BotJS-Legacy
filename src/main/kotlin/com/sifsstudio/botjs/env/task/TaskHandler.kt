@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.task
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.util.concurrent.Parker
+import com.sifsstudio.botjs.env.Parker
 import com.sifsstudio.botjs.util.getList
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -27,7 +27,7 @@ class TaskHandler(private val env: BotEnv) {
         handle.future = future
     }
 
-    fun resume(): Any? {
+    suspend fun resume(): Any? {
         check(pendingTask?.second != null)
         tickable = true
         val pendingTask = pendingTask
@@ -69,7 +69,7 @@ class TaskHandler(private val env: BotEnv) {
     fun reset() {
         if (pendingTask != null) {
             if (parker.parking) {
-                parker.unpark()
+                parker.interrupt()
             }
             pendingTask = null
         }
@@ -98,7 +98,7 @@ class TaskHandler(private val env: BotEnv) {
         return future
     }
 
-    fun <T : Any> block(future: TaskFuture<T>): PollResult<T> {
+    suspend fun <T : Any> block(future: TaskFuture<T>): PollResult<T> {
         synchronized(this) {
             tickingTasks.iterator().run {
                 while (hasNext()) {

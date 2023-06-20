@@ -1,5 +1,6 @@
 package com.sifsstudio.botjs.env.api.ability
 
+import SuspensionContext
 import com.sifsstudio.botjs.env.*
 import com.sifsstudio.botjs.env.api.wrapper.BlockSnapshot
 import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
@@ -16,11 +17,11 @@ class SensingAbility internal constructor(environment: BotEnv) : AbilityBase(env
 
     @Suppress("unused")
     fun searchEntity(range: Double, predicate: Function): List<EntitySnapshot> =
-        block(EntitySearchTask(range, environment, predicate))
+        SuspensionContext.invokeSuspend { block(EntitySearchTask(range, environment, predicate)) }
 
     @Suppress("unused")
     fun searchBlock(range: Double, predicate: Function): List<BlockSnapshot> =
-        block(BlockStateSearchTask(range, environment, predicate))
+        SuspensionContext.invokeSuspend { block(BlockStateSearchTask(range, environment, predicate)) }
 }
 
 class BlockStateSearchTask internal constructor(

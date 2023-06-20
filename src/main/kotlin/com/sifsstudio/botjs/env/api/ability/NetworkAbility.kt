@@ -14,8 +14,8 @@ class NetworkAbility internal constructor(environment: BotEnv) : AbilityBase(env
 
     private val property = environment[EnvCharacteristic.CONNECTION]!!
 
-    fun scan(): Set<String> {
-        return mutableSetOf<Remote>().apply {
+    fun scan() =
+        mutableSetOf<Remote>().apply {
             RemoteLocator.findNearby(
                 property.remote,
                 property.range,
@@ -23,7 +23,6 @@ class NetworkAbility internal constructor(environment: BotEnv) : AbilityBase(env
                 ReachabilityTest(property.remote)
             )
         }.mapTo(mutableSetOf()) { it.uid.toString() }
-    }
 
     fun send(remote: String, message: String): Boolean {
         val another = RemoteLocator.searchRemote(property.remote, remote) ?: return false

@@ -13,6 +13,8 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
 import kotlin.math.sqrt
 
 // ItemStack
@@ -60,3 +62,5 @@ fun Position.dToLessEq(another: Position, maxDistance: Double): Boolean {
 }
 
 val Vec3i.position get() = PositionImpl(x.toDouble(), y.toDouble(), z.toDouble())
+
+inline fun Continuation<Unit>.resume() = resume(Unit)

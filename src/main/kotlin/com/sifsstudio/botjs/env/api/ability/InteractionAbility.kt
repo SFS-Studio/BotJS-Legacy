@@ -27,19 +27,16 @@ class InteractionAbility internal constructor(environment: BotEnv) : AbilityBase
     override val id = "interaction"
 
     @Suppress("unused")
-    fun breakBlock(x: Double, y: Double, z: Double): TaskFuture<Boolean> {
-        return submit(BreakBlockTask(BlockPos(x, y, z), environment))
-    }
+    fun breakBlock(x: Double, y: Double, z: Double) =
+        submit(BreakBlockTask(BlockPos(x, y, z), environment))
 
     @Suppress("unused")
-    fun attack(entity: EntitySnapshot): TaskFuture<Boolean> {
-        return submit(AttackTask(entity.id, environment))
-    }
+    fun attack(entity: EntitySnapshot) =
+        submit(AttackTask(entity.id, environment))
 
     @Suppress("unused")
-    fun sweepAttack(): TaskFuture<Boolean> {
-        return submit(AttackTask(null, environment))
-    }
+    fun sweepAttack() =
+        submit(AttackTask(null, environment))
 }
 
 class AttackTask internal constructor(private val environment: BotEnv) : TickableTask<Boolean> {

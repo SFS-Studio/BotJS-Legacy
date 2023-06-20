@@ -1,23 +1,19 @@
 plugins {
-    id 'net.minecraftforge.gradle' version '5.1.69'
+    id 'net.minecraftforge.gradle' version '5.1.+'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
-    id "org.jetbrains.kotlin.jvm" version "1.7.10"
+    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-// THIS FILE IS COPIED FROM https://github.com/thedarkcolour/KotlinForForge/blob/site/thedarkcolour/kotlinforforge/gradle/kff-3.7.1.gradle
-apply from: 'kff-3.7.1-patched.gradle'
-
-group = 'com.sifsstudio'
 version = '1.0-SNAPSHOT'
+group = 'com.sifsstudio'
+archivesBaseName = 'botjs'
 
-java {
-    archivesBaseName = 'botjs'
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
-    mappings channel: 'parchment', version: '2022.11.06-1.18.2'
+    mappings channel: 'parchment', version: '1.19.3-2023.03.12-1.19.4'
 
     runs {
         client {
@@ -93,19 +89,19 @@ configurations {
     minecraftLibrary.extendsFrom shade
 }
 
-dependencies {
-    minecraft 'net.minecraftforge:forge:1.18.2-40.1.85'
-
-    shade "org.mozilla:rhino:1.7.14"
+repositories {
+    maven {
+        name = 'Kotlin for Forge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
+    }
 }
 
-minecraft.runs.configureEach {
-    String previous = lazyTokens['minecraft_classpath'].get()
-    lazyToken('minecraft_classpath') {
-        configurations.shade.copyRecursive().resolve().collect {
-            it.absolutePath
-        }.join(File.pathSeparator) + File.pathSeparator + previous
-    }
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.19.4-45.1.0'
+
+    implementation 'thedarkcolour:kotlinforforge:4.3.0'
+
+    shade "org.mozilla:rhino:1.7.14"
 }
 
 compileKotlin {

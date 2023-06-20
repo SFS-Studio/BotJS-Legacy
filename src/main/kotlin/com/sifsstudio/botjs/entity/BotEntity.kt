@@ -11,7 +11,7 @@ import com.sifsstudio.botjs.util.getList
 import com.sifsstudio.botjs.util.isItem
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
-import net.minecraft.network.chat.TranslatableComponent
+import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
@@ -99,7 +99,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
                         playerInventory,
                         inventory
                     )
-                }, TranslatableComponent("${BotJS.ID}.menu.bot_mount_title")))
+                }, Component.translatable("${BotJS.ID}.menu.bot_mount_title")))
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && !environment.running) {

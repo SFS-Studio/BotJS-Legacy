@@ -4,7 +4,7 @@ import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
 import net.minecraft.world.item.Item
 
-abstract class UpgradeItem : Item(Properties().stacksTo(1).tab(BotJS.TAB)) {
+abstract class UpgradeItem : Item(Properties().stacksTo(1)) {
     abstract fun upgrade(env: BotEnv)
 
     companion object {

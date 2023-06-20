@@ -8,7 +8,7 @@ import net.minecraftforge.registries.ForgeRegistries
 import thedarkcolour.kotlinforforge.forge.registerObject
 
 object Entities {
-    val REGISTRY: DeferredRegister<EntityType<*>> = DeferredRegister.create(ForgeRegistries.ENTITIES, BotJS.ID)
+    val REGISTRY: DeferredRegister<EntityType<*>> = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, BotJS.ID)
 
     val BOT: EntityType<BotEntity> by REGISTRY.registerObject("bot") {
         EntityType.Builder.of(::BotEntity, MobCategory.MISC).build("bot")

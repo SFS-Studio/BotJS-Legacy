@@ -42,11 +42,6 @@ fun Level.extinguishFire(player: Player?, pos: BlockPos, direction: Direction): 
     }
 }
 
-// Vec3
-operator fun Vec3.plus(rhs: Vec3): Vec3 = add(rhs)
-operator fun Vec3.minus(rhs: Vec3): Vec3 = subtract(rhs)
-operator fun Vec3.times(scalar: Double): Vec3 = scale(scalar)
-
 fun Position.distanceTo(another: Position): Double {
     val deltaX = x() - another.x()
     val deltaY = y() - another.y()
@@ -64,3 +59,6 @@ fun Position.dToLessEq(another: Position, maxDistance: Double): Boolean {
 val Vec3i.position get() = PositionImpl(x.toDouble(), y.toDouble(), z.toDouble())
 
 inline fun Continuation<Unit>.resume() = resume(Unit)
+
+@Suppress("UNCHECKED_CAST")
+fun <T> nonnull(): T = null as T

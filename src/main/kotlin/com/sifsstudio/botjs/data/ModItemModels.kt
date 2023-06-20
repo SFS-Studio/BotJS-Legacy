@@ -2,27 +2,26 @@ package com.sifsstudio.botjs.data
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.item.Items
-import net.minecraft.data.DataGenerator
+import net.minecraft.data.PackOutput
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.BlockItem
-import net.minecraft.world.item.Item
 import net.minecraftforge.client.model.generators.ItemModelProvider
 import net.minecraftforge.common.data.ExistingFileHelper
 
-class ModItemModels(generator: DataGenerator, existingFileHelper: ExistingFileHelper) :
-    ItemModelProvider(generator, BotJS.ID, existingFileHelper) {
+class ModItemModels(packOutput: PackOutput, existingFileHelper: ExistingFileHelper) :
+    ItemModelProvider(packOutput, BotJS.ID, existingFileHelper) {
 
     companion object {
         val handheld = ResourceLocation("item/handheld")
     }
 
-    fun handheld(item: Item, prefix: String) {
-        val path = item.registryName?.path
-        singleTexture(path, handheld, "layer0", modLoc("$prefix/$path"))
+    private fun handheld(id: ResourceLocation) {
+        val path = id.path
+        singleTexture(path, handheld, "layer0", modLoc("item/$path"))
     }
 
-    fun blockItem(item: Item) {
-        val path = item.registryName?.path
+    private fun blockItem(id: ResourceLocation) {
+        val path = id.path
         withExistingParent(path, modLoc("block/$path"))
     }
 
@@ -30,9 +29,9 @@ class ModItemModels(generator: DataGenerator, existingFileHelper: ExistingFileHe
         Items.REGISTRY.entries.forEach {
             val item = it.get()
             if (item is BlockItem) {
-                blockItem(item)
+                blockItem(it.id)
             } else {
-                handheld(item, "item")
+                handheld(it.id)
             }
         }
     }

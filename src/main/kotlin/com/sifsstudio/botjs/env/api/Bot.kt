@@ -1,5 +1,6 @@
 package com.sifsstudio.botjs.env.api
 
+import SuspensionContext
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.task.TaskFuture
@@ -11,17 +12,22 @@ class Bot(private val environment: BotEnv, abilities: Map<String, AbilityBase>) 
     @JvmField
     val abilities: Map<String, AbilityBase> = Collections.unmodifiableMap(abilities)
 
-    @Suppress("unused")
-    val x by environment.entity::x
+    //TODO: see why delegate do not compile
 
     @Suppress("unused")
-    val y by environment.entity::y
+    val x
+        get() = environment.entity.x
 
     @Suppress("unused")
-    val z by environment.entity::z
+    val y
+        get() = environment.entity.y
 
     @Suppress("unused")
-    fun <T : Any> block(future: TaskFuture<T>): T {
-        return environment.block(future)
+    val z
+        get() = environment.entity.z
+
+    @Suppress("unused")
+    fun <T : Any> block(future: TaskFuture<T>): T = SuspensionContext.invokeSuspend {
+        environment.block(future)
     }
 }

@@ -3,11 +3,8 @@ package com.sifsstudio.botjs.env.api.ability
 import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
 import com.sifsstudio.botjs.env.task.PollResult
-import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.task.TickableTask
 import com.sifsstudio.botjs.util.extinguishFire
-import com.sifsstudio.botjs.util.plus
-import com.sifsstudio.botjs.util.times
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.IntTag
@@ -20,7 +17,8 @@ import net.minecraftforge.common.ForgeHooks
 import net.minecraftforge.common.util.FakePlayer
 import net.minecraftforge.common.util.FakePlayerFactory
 import net.minecraftforge.eventbus.api.Event
-import java.util.*
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.plus
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.times
 
 class InteractionAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
 
@@ -28,7 +26,7 @@ class InteractionAbility internal constructor(environment: BotEnv) : AbilityBase
 
     @Suppress("unused")
     fun breakBlock(x: Double, y: Double, z: Double) =
-        submit(BreakBlockTask(BlockPos(x, y, z), environment))
+        submit(BreakBlockTask(BlockPos(x.toInt(), y.toInt(), z.toInt()), environment))
 
     @Suppress("unused")
     fun attack(entity: EntitySnapshot) =

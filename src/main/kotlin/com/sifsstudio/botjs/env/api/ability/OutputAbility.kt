@@ -4,11 +4,9 @@ import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
 import com.sifsstudio.botjs.util.asStringTag
-import net.minecraft.Util
 import net.minecraft.nbt.StringTag
 import net.minecraft.nbt.Tag
-import net.minecraft.network.chat.ChatType
-import net.minecraft.network.chat.TextComponent
+import net.minecraft.network.chat.Component
 import org.apache.logging.log4j.LogManager
 
 class OutputAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
@@ -42,10 +40,9 @@ class SpeakTask internal constructor(private var content: String, private val en
     override val id = ID
 
     override fun tick(): PollResult<Unit> {
-        environment.entity.level.server!!.playerList.broadcastMessage(
-            TextComponent(content),
-            ChatType.CHAT,
-            Util.NIL_UUID
+        environment.entity.level.server!!.playerList.broadcastSystemMessage(
+            Component.literal(content),
+            false
         )
         return PollResult.done(Unit)
     }

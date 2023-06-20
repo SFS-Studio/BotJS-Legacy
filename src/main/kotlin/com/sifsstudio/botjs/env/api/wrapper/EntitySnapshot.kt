@@ -1,6 +1,7 @@
 package com.sifsstudio.botjs.env.api.wrapper
 
 import net.minecraft.world.entity.Entity
+import net.minecraftforge.registries.ForgeRegistries
 import java.io.Serializable
 
 @Suppress("unused")
@@ -16,7 +17,7 @@ class EntitySnapshot(entity: Entity) : Serializable {
     val z = entity.z
 
     @JvmField
-    val type = entity.type.registryName?.toString()
+    val type = ForgeRegistries.ENTITY_TYPES.getKey(entity.type)
 
     @JvmField
     val uuid: String = entity.stringUUID

@@ -2,10 +2,7 @@ package com.sifsstudio.botjs.client.gui.screen.inventory
 
 import com.mojang.blaze3d.platform.GlStateManager
 import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.blaze3d.vertex.DefaultVertexFormat
 import com.mojang.blaze3d.vertex.PoseStack
-import com.mojang.blaze3d.vertex.Tesselator
-import com.mojang.blaze3d.vertex.VertexFormat
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.network.NetworkManager
 import com.sifsstudio.botjs.network.ServerboundScriptChangedPacket
@@ -20,8 +17,8 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.renderer.GameRenderer
 import net.minecraft.client.renderer.Rect2i
 import net.minecraft.network.chat.CommonComponents
+import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
-import net.minecraft.network.chat.TranslatableComponent
 import net.minecraft.resources.ResourceLocation
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.api.distmarker.OnlyIn
@@ -31,7 +28,7 @@ import kotlin.math.min
 
 @OnlyIn(Dist.CLIENT)
 class ProgrammerScreen(private val entityId: Int, private var script: String) :
-    Screen(TranslatableComponent("${BotJS.ID}.menu.programmer.title")) {
+    Screen(Component.translatable("${BotJS.ID}.menu.programmer.title")) {
 
     companion object {
         private const val PROGRAMMER_WIDTH: Int = 176
@@ -120,23 +117,18 @@ class ProgrammerScreen(private val entityId: Int, private var script: String) :
         clearDisplayCache()
         val i = (width - PROGRAMMER_WIDTH) / 2
         val j = (height - PROGRAMMER_HEIGHT) / 2
-        doneButton = addRenderableWidget(Button(i + 4, j + 141, 79, 20, CommonComponents.GUI_DONE) {
+        doneButton = addRenderableWidget(Button.builder(CommonComponents.GUI_DONE) {
             NetworkManager.INSTANCE.sendToServer(
                 ServerboundScriptChangedPacket(
                     entityId, script
                 )
             )
             this.minecraft!!.setScreen(null)
-        })
+        }.pos(i + 4, j + 141).size(79, 20).build())
         doneButton.active = false
-        addRenderableWidget(Button(i + 93, j + 141, 79, 20, CommonComponents.GUI_CANCEL) {
+        addRenderableWidget(Button.builder(CommonComponents.GUI_CANCEL) {
             this.minecraft!!.setScreen(null)
-        })
-        getMinecraft().keyboardHandler.setSendRepeatsToGui(true)
-    }
-
-    override fun removed() {
-        getMinecraft().keyboardHandler.setSendRepeatsToGui(false)
+        }.pos(i + 93, j + 141).size(79, 20).build())
     }
 
     override fun keyPressed(pKeyCode: Int, pScanCode: Int, pModifiers: Int): Boolean =
@@ -418,33 +410,18 @@ class ProgrammerScreen(private val entityId: Int, private var script: String) :
                 0xFFFFFFFF.toInt()
             )
         }
-        renderHighlight(displayCache!!.selection)
+        renderHighlight(pPoseStack, displayCache!!.selection)
         renderCursor(pPoseStack, displayCache!!.cursorPos, displayCache!!.cursorAtEnd)
         super.render(pPoseStack, pMouseX, pMouseY, pPartialTick)
     }
 
-    private fun renderHighlight(pSelection: Array<Rect2i>) {
-        val tesselator = Tesselator.getInstance()
-        val bufferBuilder = tesselator.builder
-        RenderSystem.setShader(GameRenderer::getPositionShader)
-        RenderSystem.setShaderColor(255.0F, 255.0F, 255.0F, 255.0F)
-        RenderSystem.disableTexture()
+    private fun renderHighlight(pPoseStack: PoseStack, pSelection: Array<Rect2i>) {
         RenderSystem.enableColorLogicOp()
         RenderSystem.logicOp(GlStateManager.LogicOp.AND_REVERSE)
-        bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION)
         for (rect2i in pSelection) {
-            val i = rect2i.x
-            val j = rect2i.y
-            val k = i + rect2i.width
-            val l = j + rect2i.height
-            bufferBuilder.vertex(i.toDouble(), l.toDouble(), 0.0).endVertex()
-            bufferBuilder.vertex(k.toDouble(), l.toDouble(), 0.0).endVertex()
-            bufferBuilder.vertex(k.toDouble(), j.toDouble(), 0.0).endVertex()
-            bufferBuilder.vertex(i.toDouble(), j.toDouble(), 0.0).endVertex()
+            GuiComponent.fill(pPoseStack, rect2i.x, rect2i.y, rect2i.width, rect2i.height, 0xFFFFFFFF.toInt())
         }
-        tesselator.end()
         RenderSystem.disableColorLogicOp()
-        RenderSystem.enableTexture()
     }
 
     private fun renderCursor(pPoseStack: PoseStack, pCursorPos: Pos2i, pIsEndOfText: Boolean) {

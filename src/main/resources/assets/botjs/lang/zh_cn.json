@@ -8,5 +8,7 @@
   "item.botjs.switch": "开关",
   "item.botjs.timing_upgrade": "时控升级",
   "item.botjs.wrench": "扳手",
-  "itemGroup.botjs": "BotJS"
+  "item.botjs.interaction_upgrade": "交互升级",
+  "item.botjs.sensing_upgrade": "感知升级",
+  "item_group.botjs": "BotJS"
 }

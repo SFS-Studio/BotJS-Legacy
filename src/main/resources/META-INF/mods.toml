@@ -1,5 +1,5 @@
 modLoader = "kotlinforforge" #mandatory
-loaderVersion = "[3,)"
+loaderVersion = "[4,)"
 license = "MIT"
 #issueTrackerURL="http://my.issue.tracker/" #optional
 [[mods]]
@@ -17,12 +17,12 @@ Extensible and programmable bots!
 [[dependencies.botjs]]
 modId = "forge"
 mandatory = true
-versionRange = "[40,)"
+versionRange = "[45,)"
 ordering = "NONE"
 side = "BOTH"
 [[dependencies.botjs]]
 modId = "minecraft"
 mandatory = true
-versionRange = "[1.18.2,1.19)"
+versionRange = "[1.19.4,1.20)"
 ordering = "NONE"
 side = "BOTH"

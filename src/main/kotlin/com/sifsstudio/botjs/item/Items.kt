@@ -50,21 +50,21 @@ object Items {
 
     val WRENCH: Item
             by REGISTRY.registerObject("wrench") {
-                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
+                Item(Item.Properties().stacksTo(1))
             }
 
     val PROGRAMMER: Item
             by REGISTRY.registerObject("programmer") {
-                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
+                Item(Item.Properties().stacksTo(1))
             }
 
     val SWITCH: Item
             by REGISTRY.registerObject("switch") {
-                Item(Item.Properties().stacksTo(1).tab(BotJS.TAB))
+                Item(Item.Properties().stacksTo(1))
             }
 
     val CONTROLLER_BLOCK: BlockItem
             by REGISTRY.registerObject("controller_block") {
-                BlockItem(Blocks.CONTROLLER_BLOCK, Item.Properties().tab(BotJS.TAB))
+                BlockItem(Blocks.CONTROLLER_BLOCK, Item.Properties())
             }
 }

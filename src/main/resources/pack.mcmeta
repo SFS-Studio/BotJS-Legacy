@@ -1,8 +1,9 @@
 {
   "pack": {
-    "description": "botjs resources",
-    "pack_format": 8,
-    "forge:resource_pack_format": 8,
-    "forge:data_pack_format": 9
+    "description": {
+      "text": "botjs resources"
+    },
+    "forge:server_data_pack_format": 12,
+    "pack_format": 13
   }
 }

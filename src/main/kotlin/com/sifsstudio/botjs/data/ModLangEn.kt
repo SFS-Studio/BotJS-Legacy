@@ -10,11 +10,12 @@ import net.minecraftforge.registries.RegistryObject
 
 class ModLangEn(packOutput: PackOutput) : LanguageProvider(packOutput, BotJS.ID, "en_us") {
     companion object {
-        val <T> RegistryObject<T>.English get() = id.path.split('_').joinToString(" ") { segment ->
-            segment.replaceFirstChar {
-                it.uppercase()
+        val <T> RegistryObject<T>.English
+            get() = id.path.split('_').joinToString(" ") { segment ->
+                segment.replaceFirstChar {
+                    it.uppercase()
+                }
             }
-        }
 
         val entries = mapOf(
             "botjs.menu.programmer.title" to "Programmer",

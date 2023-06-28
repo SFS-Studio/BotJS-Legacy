@@ -24,19 +24,15 @@ inline fun suspendableContext(
     SuspensionContext().useWithContext(ctx, block)
 }
 
-inline fun suspendableCurrent(block: SuspendContextBlock) = suspendableContext(Context.getCurrentContext(), block)
-
 class SuspensionContext : Closeable {
-
     companion object {
-        @JvmField
         val CONTEXT: ThreadLocal<SuspensionContext> = ThreadLocal()
 
         /**
          * Cause the current Context to suspend and notify the underlying
          * SuspensionContext object to handle the suspend function call
          */
-        fun<T : Any> invokeSuspend(block: SuspendBlock<T>): T {
+        fun <T : Any> invokeSuspend(block: SuspendBlock<T>): T {
             val ctx = CONTEXT.get()
             check(ctx != null) { "There is no SuspensionContext bound to current thread" }
             ctx.breakpoint = block
@@ -45,17 +41,15 @@ class SuspensionContext : Closeable {
 
     }
 
-    private val thread: Thread
-
     private var breakpoint: SuspendBlock<Any>? = null
 
     init {
         check(CONTEXT.get() == null) { "There is already a SuspensionContext bound to current thread" }
         CONTEXT.set(this)
-        thread = Thread.currentThread()
     }
 
     suspend fun Context.runScriptSuspend(script: Script, scope: ScriptableObject): Any? {
+        // TODO: check if wrong
         return try {
             executeScriptWithContinuations(script, scope)
         } catch (suspend: ContinuationPending) {
@@ -67,6 +61,7 @@ class SuspensionContext : Closeable {
         }
     }
 
+    @Suppress("NAME_SHADOWING")
     suspend fun Context.resumeSuspend(rhinoCont: Any, scope: ScriptableObject, result: Any?): Any {
         var rhinoCont = rhinoCont
         var result = result
@@ -85,5 +80,4 @@ class SuspensionContext : Closeable {
     override fun close() {
         CONTEXT.set(null)
     }
-
 }

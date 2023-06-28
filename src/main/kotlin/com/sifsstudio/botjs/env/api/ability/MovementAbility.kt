@@ -19,7 +19,7 @@ class MovementAbility internal constructor(environment: BotEnv) : AbilityBase(en
 
     @Suppress("unused")
     fun lookAt(x: Double, y: Double, z: Double) = SuspensionContext.invokeSuspend {
-        block(LookAtTask(x,y,z, environment))
+        block(LookAtTask(x, y, z, environment))
     }
 }
 
@@ -88,13 +88,14 @@ class LookAtTask(
     private var tickProgress: Int = 0
 
     override fun tick(): PollResult<Unit> =
-        when(tickProgress) {
+        when (tickProgress) {
             1 -> {
                 environment.entity.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3(x, y, z))
-                environment . entity . lookControl . setLookAt (x, y, z)
+                environment.entity.lookControl.setLookAt(x, y, z)
                 tickProgress++
                 PollResult.pending()
             }
+
             3 -> PollResult.done()
             else -> {
                 tickProgress++

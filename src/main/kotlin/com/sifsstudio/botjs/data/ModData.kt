@@ -1,7 +1,6 @@
 package com.sifsstudio.botjs.data
 
 import com.sifsstudio.botjs.BotJS
-import net.minecraft.data.PackOutput
 import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
@@ -13,8 +12,7 @@ object ModData {
         val gen = event.generator
 
         gen.addProvider<ModItemModels>(event.includeClient()) {
-                packOutput: PackOutput ->
-            ModItemModels(packOutput, event.existingFileHelper)
+            ModItemModels(it, event.existingFileHelper)
         }
         gen.addProvider(event.includeClient(), ::ModLangEn)
     }

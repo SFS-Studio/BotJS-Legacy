@@ -1,11 +1,14 @@
 package com.sifsstudio.botjs.env.api.ability
 
 import SuspensionContext
-import com.sifsstudio.botjs.env.*
+import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.addCache
 import com.sifsstudio.botjs.env.api.wrapper.BlockSnapshot
 import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
+import com.sifsstudio.botjs.env.getCache
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
+import com.sifsstudio.botjs.env.wrapJsFunction
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
@@ -44,11 +47,11 @@ class BlockStateSearchTask internal constructor(
 
     override fun tick(): PollResult<List<BlockSnapshot>> {
         check(::predicate.isInitialized)
-        val predicator: (BlockSnapshot) -> Boolean = wrapJsFunction(predicate)
+        val predicate: (BlockSnapshot) -> Boolean = wrapJsFunction(predicate)
         return environment.entity.run {
             BlockPos.betweenClosedStream(AABB.ofSize(position(), range, range, range))
                 .map { BlockSnapshot(it, level.getBlockState(it)) }
-        }.filter(predicator).toList().let { PollResult.done(it) }
+        }.filter(predicate).toList().let { PollResult.done(it) }
     }
 
     override fun serialize() = CompoundTag().apply {
@@ -83,13 +86,13 @@ class EntitySearchTask(
 
     override fun tick(): PollResult<List<EntitySnapshot>> {
         check(::predicate.isInitialized)
-        val predicator: (EntitySnapshot) -> Boolean = wrapJsFunction(predicate)
+        val predicate: (EntitySnapshot) -> Boolean = wrapJsFunction(predicate)
         return environment.entity.level.getEntities(
             environment.entity,
             AABB.ofSize(environment.entity.position(), range, range, range)
         ) { true }.map {
             EntitySnapshot(it)
-        }.filter(predicator).let { PollResult.done(it) }
+        }.filter(predicate).let { PollResult.done(it) }
     }
 
     override fun serialize() = CompoundTag().apply {

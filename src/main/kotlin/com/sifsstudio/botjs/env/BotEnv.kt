@@ -4,7 +4,9 @@ import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
-import com.sifsstudio.botjs.env.task.*
+import com.sifsstudio.botjs.env.task.TaskFuture
+import com.sifsstudio.botjs.env.task.TaskHandler
+import com.sifsstudio.botjs.env.task.TickableTask
 import kotlinx.coroutines.*
 import net.minecraft.nbt.CompoundTag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
@@ -22,7 +24,8 @@ class BotEnv(val entity: BotEntity) {
     var script = ""
     var running = false
         private set
-    private var tickable = false
+    var tickable = false
+        private set
     val taskHandler = TaskHandler(this)
     private lateinit var scope: ScriptableObject
     lateinit var cacheScope: NativeObject
@@ -39,6 +42,7 @@ class BotEnv(val entity: BotEntity) {
 
     fun characteristics(): Set<EnvCharacteristic.Key<*>> = characteristics.keys
 
+    @Suppress("UNCHECKED_CAST")
     operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = characteristics[key] as T?
 
     operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T?) {
@@ -56,7 +60,7 @@ class BotEnv(val entity: BotEntity) {
         characteristics.clear()
     }
 
-    suspend fun run() {
+    private suspend fun run() {
         running = true
         suspendableContext { context ->
             context.optimizationLevel = -1
@@ -82,9 +86,7 @@ class BotEnv(val entity: BotEntity) {
                         exception.printStackTrace()
                     }
                 } finally {
-                    synchronized(this) {
-                        taskHandler.reset()
-                    }
+                    characteristics.values.forEach { it.onDeactive(this@BotEnv) }
                     running = false
                 }
             } else {
@@ -96,10 +98,7 @@ class BotEnv(val entity: BotEntity) {
                 }
                 cacheScope = sis.readObject() as NativeObject
                 try {
-                    val ret = taskHandler.resume()
-                    if (ret == Unit) {
-                        return
-                    }
+                    val ret = taskHandler.resume() ?: return
                     context.resumeSuspend(continuation, scope, ret)
                     serializedFrame = ""
                 } catch (pending: ContinuationPending) {
@@ -118,9 +117,6 @@ class BotEnv(val entity: BotEntity) {
                     serializedFrame = ""
                 } finally {
                     characteristics.values.forEach { it.onDeactive(this@BotEnv) }
-                    synchronized(this) {
-                        taskHandler.reset()
-                    }
                     running = false
                 }
             }
@@ -128,11 +124,10 @@ class BotEnv(val entity: BotEntity) {
     }
 
     fun tick() {
-        tickable = true
         taskHandler.tick()
     }
 
-    fun<T: Any> submit(task: TickableTask<T>): TaskFuture<T> {
+    fun <T : Any> submit(task: TickableTask<T>): TaskFuture<T> {
         val result = taskHandler.submit(task)
         if (!tickable) {
             suspendExecution(result)
@@ -141,11 +136,11 @@ class BotEnv(val entity: BotEntity) {
     }
 
     suspend fun <T : Any> block(future: TaskFuture<T>): T {
-        val result = taskHandler.block(future)
+        taskHandler.block(future)
         if (!future.isDone) {
             suspendExecution(null)
         }
-        return result.result!!
+        return future.result
     }
 
     fun add() {
@@ -154,7 +149,7 @@ class BotEnv(val entity: BotEntity) {
 
     fun remove() {
         tickable = false
-        taskHandler.reset()
+        taskHandler.suspend()
     }
 
     private fun suspendExecution(data: Any?) {
@@ -231,7 +226,7 @@ class BotEnv(val entity: BotEntity) {
         fun onServerStop(@Suppress("UNUSED_PARAMETER") event: ServerStoppedEvent) {
             val dispatcher = BOT_DISPATCHER
             BOT_THREAD_ID.set(0)
-            if(dispatcher != null) {
+            if (dispatcher != null) {
                 BOT_SCOPE.cancel()
             }
         }

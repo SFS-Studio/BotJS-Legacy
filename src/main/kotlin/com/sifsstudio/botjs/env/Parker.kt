@@ -2,7 +2,6 @@ package com.sifsstudio.botjs.env
 
 import com.sifsstudio.botjs.util.resume
 import kotlin.coroutines.Continuation
-import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 /**
@@ -13,40 +12,23 @@ class Parker {
     var parking: Boolean = false
         private set
 
-    suspend fun park(): Boolean {
+    suspend fun park() {
         check(!parking) { "Something is currently parking on this parker! This should not be possible." }
         parking = true
-        var result = try {
+        try {
             suspendCoroutine {
                 continuation = it
             }
-            true
         } catch (e: Exception) {
-            if(e != COROUTINE_INTERRUPTED) {
-                e.printStackTrace()
-            }
-            false
+            e.printStackTrace()
         }
         parking = false
         continuation = null
-        return result
     }
 
     @Synchronized
     fun unpark() {
         check(parking) { "Nothing is currently blocked on this parker!" }
         continuation!!.resume()
-    }
-
-    @Synchronized
-    fun interrupt() {
-        check(parking) { "Nothing is currently blocked on this parker!" }
-        continuation!!.resumeWithException(COROUTINE_INTERRUPTED)
-    }
-
-    companion object {
-        val COROUTINE_INTERRUPTED = object: RuntimeException(null, null, false, false) {
-            override fun fillInStackTrace() = this
-        }
     }
 }

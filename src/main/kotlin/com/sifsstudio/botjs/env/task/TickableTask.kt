@@ -46,18 +46,14 @@ class PollResult<out T : Any>(val isDone: Boolean, val result: T?) {
     }
 }
 
-class TaskFuture<out T : Any> internal constructor() : java.io.Serializable {
+class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     var isDone: Boolean = false
         private set
 
-    private lateinit var result: T
+    lateinit var result: T
+        private set
 
-    @JvmField
     internal var ordinal = -1
-
-    fun getResult(): T {
-        return result
-    }
 
     @Synchronized
     internal fun done(result: Any) {
@@ -86,6 +82,7 @@ class TaskFuture<out T : Any> internal constructor() : java.io.Serializable {
         check(stream is EnvInputStream)
         isDone = stream.readBoolean()
         if (stream.readBoolean()) {
+            @Suppress("UNCHECKED_CAST")
             result = stream.readObject() as T
         }
         ordinal = stream.readInt()
@@ -98,22 +95,17 @@ class TaskFuture<out T : Any> internal constructor() : java.io.Serializable {
         throw UnsupportedOperationException()
     }
 
-    internal suspend fun join(it: Parker): PollResult<T> {
+    internal suspend fun join(it: Parker) {
         synchronized(it) {
             if (isDone) {
-                return PollResult.done(result)
+                return
             }
         }
         coroutineContext[Job]?.invokeOnCompletion { t ->
-            if(t is InterruptedException) {
-                it.interrupt()
+            if (t is InterruptedException) {
+                it.unpark()
             }
         }
         it.park()
-        return synchronized(this) {
-            if (!isDone) {
-                PollResult.pending()
-            } else PollResult.done(result)
-        }
     }
 }

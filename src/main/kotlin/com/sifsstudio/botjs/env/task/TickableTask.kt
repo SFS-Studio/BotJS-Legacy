@@ -4,14 +4,12 @@ import com.sifsstudio.botjs.env.BotEnv
 import com.sifsstudio.botjs.env.EnvInputStream
 import com.sifsstudio.botjs.env.EnvOutputStream
 import com.sifsstudio.botjs.env.Parker
-import kotlinx.coroutines.Job
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import java.io.IOException
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.io.ObjectStreamException
-import kotlin.coroutines.coroutineContext
 
 interface TickableTask<out T : Any> {
     val id: String
@@ -53,8 +51,6 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     lateinit var result: T
         private set
 
-    internal var ordinal = -1
-
     @Synchronized
     internal fun done(result: Any) {
         check(!isDone) { "Future already done" }
@@ -66,7 +62,10 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     @Throws(IOException::class)
     private fun writeObject(stream: ObjectOutputStream) {
         check(stream is EnvOutputStream)
-        check(ordinal >= 0)
+        val ordinal = stream.env.taskHandler.ordinal(this)
+        if (ordinal == -1) {
+            check(isDone)
+        }
         stream.writeBoolean(isDone)
         if (::result.isInitialized) {
             stream.writeBoolean(true)
@@ -85,9 +84,10 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
             @Suppress("UNCHECKED_CAST")
             result = stream.readObject() as T
         }
-        ordinal = stream.readInt()
-        check(ordinal >= -1)
-        stream.env.taskHandler.associate(this)
+        val ordinal = stream.readInt()
+        if (ordinal >= 0) {
+            stream.env.taskHandler.associate(this, ordinal)
+        }
     }
 
     @Throws(ObjectStreamException::class)
@@ -96,15 +96,8 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     }
 
     internal suspend fun join(it: Parker) {
-        synchronized(it) {
-            if (isDone) {
-                return
-            }
-        }
-        coroutineContext[Job]?.invokeOnCompletion { t ->
-            if (t is InterruptedException) {
-                it.unpark()
-            }
+        if (isDone) {
+            return
         }
         it.park()
     }

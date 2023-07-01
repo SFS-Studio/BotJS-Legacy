@@ -57,6 +57,7 @@ fun Position.dToLessEq(another: Position, maxDistance: Double): Boolean {
 
 val Vec3i.position get() = PositionImpl(x.toDouble(), y.toDouble(), z.toDouble())
 
+@Suppress("NOTHING_TO_INLINE")
 inline fun Continuation<Unit>.resume() = resume(Unit)
 
 @Suppress("UNCHECKED_CAST")

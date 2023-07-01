@@ -13,6 +13,6 @@ import net.minecraftforge.api.distmarker.OnlyIn
 class BotEntityRenderer(pContext: EntityRendererProvider.Context) :
     LivingEntityRenderer<BotEntity, BotModel>(pContext, BotModel(pContext.bakeLayer(BotJSModelLayers.BOT)), 0.5F) {
     override fun getTextureLocation(pEntity: BotEntity): ResourceLocation {
-        return ResourceLocation("textures/entity/steve.png")
+        return ResourceLocation("textures/entity/player/wide/steve.png")
     }
 }

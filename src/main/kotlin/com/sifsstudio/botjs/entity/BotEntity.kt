@@ -71,6 +71,13 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         if (!this.level.isClientSide) {
             environment.add()
             if (environment.serializedFrame.isNotEmpty()) {
+                environment.clearUpgrades()
+                for (i in 0 until inventory.containerSize) {
+                    val itemStack = inventory.getItem(i)
+                    if (itemStack != ItemStack.EMPTY && itemStack.item is UpgradeItem) {
+                        (itemStack.item as UpgradeItem).upgrade(environment)
+                    }
+                }
                 environment.launch()
             }
         }

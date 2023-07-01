@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api.ability
 
-import SuspensionContext
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.SuspensionContext
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
 import net.minecraft.nbt.CompoundTag

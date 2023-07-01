@@ -13,18 +13,19 @@ class TaskHandler(private val env: BotEnv) {
     private var pendingTask: Pair<TaskHandle<*>, Boolean>? = null
     private val parker: Parker = Parker()
 
-    fun <T : Any> associate(future: TaskFuture<T>) {
-        check(tickingTasks.isNotEmpty())
-        check(future.ordinal in -1..tickingTasks.size)
-        val handle = if (future.ordinal == -1) {
+    fun <T : Any> associate(future: TaskFuture<T>, ordinal: Int) {
+        check(ordinal in -1..tickingTasks.size)
+        val handle = if (ordinal == -1) {
             check(pendingTask != null)
             pendingTask!!.first
         } else {
-            tickingTasks[future.ordinal]
+            tickingTasks[ordinal]
         } as TaskHandle<T>
         check(!handle.hasFuture) { "The task to associate already owned a future! This should not be possible." }
         handle.future = future
     }
+
+    fun ordinal(future: TaskFuture<*>): Int = tickingTasks.indexOfFirst { it.hasFuture && it.future == future }
 
     suspend fun resume(): Any? {
         val pendingTask = checkNotNull(pendingTask)
@@ -63,24 +64,29 @@ class TaskHandler(private val env: BotEnv) {
     }
 
     @Synchronized
-    fun suspend() {
+    fun suspend(terminate: Boolean) {
         if (parker.parking) {
-            parker.unpark()
+            if (terminate) {
+                parker.interrupt()
+            } else {
+                parker.unpark()
+            }
         }
     }
 
     @Synchronized
     private fun <T : Any> findTask(future: TaskFuture<T>): TaskHandle<T>? {
-        if (pendingTask != null && pendingTask!!.first.future == future) {
-            return pendingTask!!.first as TaskHandle<T>
+        return if (pendingTask != null && pendingTask!!.first.future == future) {
+            pendingTask!!.first as TaskHandle<T>
         } else {
-            for (it in tickingTasks) {
-                if (it.future == future) {
-                    return it as TaskHandle<T>
-                }
-            }
-            return null
+            tickingTasks.firstOrNull { it.future == future } as TaskHandle<T>?
         }
+    }
+
+    @Synchronized
+    fun reset() {
+        pendingTask = null
+        tickingTasks.clear()
     }
 
     fun <T : Any> submit(task: TickableTask<T>): TaskFuture<T> {
@@ -128,7 +134,11 @@ class TaskHandler(private val env: BotEnv) {
     @Synchronized
     fun deserialize(compound: CompoundTag) {
         pendingTask =
-            TickableTask.deserialize(compound.getCompound("pendingTask"), env)?.let { Pair(TaskHandle(it), false) }
+            TickableTask.deserialize(compound.getCompound("pendingTask"), env)
+                ?.let { Pair(TaskHandle(it), compound.getBoolean("pendingTaskSuspended")) }
+        if (pendingTask != null) {
+            associate(TaskFuture(), -1)
+        }
         tickingTasks.clear()
         val others = compound.getList("tickingTasks", Tag.TAG_COMPOUND)
         others.forEach {
@@ -144,5 +154,6 @@ class TaskHandle<T : Any>(val task: TickableTask<T>) {
         this.future = future
     }
 
-    val hasFuture by ::future::isInitialized
+    val hasFuture
+        get() = ::future.isInitialized
 }

@@ -1,14 +1,10 @@
 package com.sifsstudio.botjs.env.api.ability
 
-import SuspensionContext
-import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.addCache
+import com.sifsstudio.botjs.env.*
 import com.sifsstudio.botjs.env.api.wrapper.BlockSnapshot
 import com.sifsstudio.botjs.env.api.wrapper.EntitySnapshot
-import com.sifsstudio.botjs.env.getCache
 import com.sifsstudio.botjs.env.task.PollResult
 import com.sifsstudio.botjs.env.task.TickableTask
-import com.sifsstudio.botjs.env.wrapJsFunction
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag

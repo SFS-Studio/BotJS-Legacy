@@ -2,7 +2,6 @@ plugins {
     id 'net.minecraftforge.gradle' version '5.1.+'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
     id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 version = '1.0-SNAPSHOT'
@@ -10,6 +9,8 @@ group = 'com.sifsstudio'
 archivesBaseName = 'botjs'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+jarJar.enable()
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
@@ -84,32 +85,44 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
-configurations {
-    shade
-    minecraftLibrary.extendsFrom shade
-}
-
 repositories {
     maven {
         name = 'Kotlin for Forge'
         url = 'https://thedarkcolour.github.io/KotlinForForge/'
     }
+    mavenCentral()
+}
+
+configurations {
+    copyImplementation
+    implementation.extendsFrom copyImplementation
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.19.4-45.1.0'
 
     implementation 'thedarkcolour:kotlinforforge:4.3.0'
+    copyImplementation 'org.mozilla:rhino:1.7.14'
 
-    shade "org.mozilla:rhino:1.7.14"
+    jarJar(group: "org.mozilla", name: "rhino", version:"[1.7.14,)") {
+        //noinspection GroovyAssignabilityCheck
+        jarJar.pin(it, "1.7.14")
+    }
 }
+
+task prepare(type: Copy) {
+    from { configurations.copyImplementation.files.collect {
+        zipTree(it)
+    } } into 'build/classes/java/main'
+}
+
+classes.finalizedBy('prepare')
 
 compileKotlin {
     kotlinOptions.jvmTarget = "17"
 }
 
 jar {
-    archiveClassifier = "slim"
     manifest {
         attributes([
                 "Specification-Title"     : "botjs",
@@ -123,18 +136,10 @@ jar {
     }
 }
 
-shadowJar {
-    archiveClassifier = ''
-    configurations = [project.configurations.shade]
-    relocate 'org.mozilla', "${project.group}.relocated.rhino"
-    finalizedBy 'reobfShadowJar'
-}
-
-assemble.dependsOn shadowJar
-
 reobf {
-    shadowJar {}
+    jarJar { }
 }
+tasks.jarJar.finalizedBy('reobfJarJar')
 
 jar.finalizedBy('reobfJar')
 

@@ -7,10 +7,10 @@ abstract class AbilityBase(protected val environment: BotEnv) {
 
     abstract val id: String
 
-    protected fun <T : Any> submit(task: TickableTask<T>) = environment.submit(task)
+    protected fun <T : Any> submit(task: TickableTask<T>) = environment.submit(task, false)
 
     protected suspend fun <T : Any> block(task: TickableTask<T>): T {
-        val future = environment.submit(task)
+        val future = environment.submit(task, true)
         return environment.block(future)
     }
 

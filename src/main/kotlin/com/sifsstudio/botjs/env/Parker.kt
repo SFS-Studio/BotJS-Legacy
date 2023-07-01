@@ -1,14 +1,14 @@
 package com.sifsstudio.botjs.env
 
 import com.sifsstudio.botjs.util.resume
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Utility class holding park/unpark control
  */
 class Parker {
-    private var continuation: Continuation<Unit>? = null
+    private var continuation: CancellableContinuation<Unit>? = null
     var parking: Boolean = false
         private set
 
@@ -16,19 +16,24 @@ class Parker {
         check(!parking) { "Something is currently parking on this parker! This should not be possible." }
         parking = true
         try {
-            suspendCoroutine {
+            suspendCancellableCoroutine {
                 continuation = it
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } finally {
+            parking = false
+            continuation = null
         }
-        parking = false
-        continuation = null
     }
 
     @Synchronized
     fun unpark() {
         check(parking) { "Nothing is currently blocked on this parker!" }
         continuation!!.resume()
+    }
+
+    @Synchronized
+    fun interrupt() {
+        check(parking)
+        continuation!!.cancel()
     }
 }

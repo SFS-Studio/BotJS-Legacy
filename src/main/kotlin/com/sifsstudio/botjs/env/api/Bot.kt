@@ -1,7 +1,7 @@
 package com.sifsstudio.botjs.env.api
 
-import SuspensionContext
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.SuspensionContext
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.task.TaskFuture
 import java.util.*

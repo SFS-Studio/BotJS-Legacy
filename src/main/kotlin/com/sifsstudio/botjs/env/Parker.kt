@@ -9,8 +9,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  */
 class Parker {
     private var continuation: CancellableContinuation<Unit>? = null
-    var parking: Boolean = false
-        private set
+    var parking = false
 
     suspend fun park() {
         check(!parking) { "Something is currently parking on this parker! This should not be possible." }

@@ -5,9 +5,11 @@ import com.sifsstudio.botjs.block.entity.BlockEntities
 import com.sifsstudio.botjs.client.gui.screen.inventory.BotMountScreen
 import com.sifsstudio.botjs.entity.Entities
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.storage.BotDataStorage
 import com.sifsstudio.botjs.inventory.MenuTypes
 import com.sifsstudio.botjs.item.Items
 import com.sifsstudio.botjs.network.NetworkManager
+import com.sifsstudio.botjs.util.ThreadLoop
 import net.minecraft.client.gui.screens.MenuScreens
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
@@ -47,9 +49,16 @@ object BotJS {
         Blocks.REGISTRY.register(MOD_BUS)
         BlockEntities.REGISTRY.register(MOD_BUS)
         NetworkManager.registerPackets()
-        MOD_BUS.addListener(this::setupClient)
+        MOD_BUS.addListener(::setupClient)
         FORGE_BUS.addListener(BotEnv.Companion::onServerSetup)
         FORGE_BUS.addListener(BotEnv.Companion::onServerStop)
+        FORGE_BUS.addListener(BotDataStorage.Companion::onServerStarted)
+        FORGE_BUS.addListener(BotDataStorage.Companion::onServerStopped)
+        FORGE_BUS.addListener(ThreadLoop.Main::onStart)
+        FORGE_BUS.addListener(ThreadLoop.Main::onTick)
+        FORGE_BUS.addListener(ThreadLoop.Main::onStop)
+        FORGE_BUS.addListener(ThreadLoop.Sync::onStart)
+        FORGE_BUS.addListener(ThreadLoop.Sync::onStopped)
         ForgeConfigSpec.Builder().configure(::Config).apply {
             CONFIG = left
             ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, right)

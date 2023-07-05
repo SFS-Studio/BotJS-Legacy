@@ -16,33 +16,33 @@ object Items {
 
     val TIMING_UPGRADE: Item
             by REGISTRY.registerObject("timing_upgrade") {
-                UpgradeItem.applies { it.install(::TimingAbility) }
+                UpgradeItem.applies { it.controller.install(::TimingAbility) }
             }
 
     val MOVEMENT_UPGRADE: Item
             by REGISTRY.registerObject("movement_upgrade") {
-                UpgradeItem.applies { it.install(::MovementAbility) }
+                UpgradeItem.applies { it.controller.install(::MovementAbility) }
             }
 
     val OUTPUT_UPGRADE: Item
             by REGISTRY.registerObject("output_upgrade") {
-                UpgradeItem.applies { it.install(::OutputAbility) }
+                UpgradeItem.applies { it.controller.install(::OutputAbility) }
             }
 
     val INTERACTION_UPGRADE: Item
             by REGISTRY.registerObject("interaction_upgrade") {
-                UpgradeItem.applies { it.install(::InteractionAbility) }
+                UpgradeItem.applies { it.controller.install(::InteractionAbility) }
             }
 
     val SENSING_UPGRADE: Item
             by REGISTRY.registerObject("sensing_upgrade") {
-                UpgradeItem.applies { it.install(::SensingAbility) }
+                UpgradeItem.applies { it.controller.install(::SensingAbility) }
             }
 
     val CONNECTION_UPGRADE: Item
             by REGISTRY.registerObject("connection_upgrade") {
                 UpgradeItem.applies {
-                    it.install(::NetworkAbility)
+                    it.controller.install(::NetworkAbility)
                     it[EnvCharacteristic.CONNECTION] =
                         ConnectionProperties(128.0, mutableMapOf())
                 }

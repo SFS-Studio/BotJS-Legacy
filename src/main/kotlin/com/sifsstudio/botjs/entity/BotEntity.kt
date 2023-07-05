@@ -9,6 +9,7 @@ import com.sifsstudio.botjs.network.ClientboundOpenProgrammerScreenPacket
 import com.sifsstudio.botjs.network.NetworkManager
 import com.sifsstudio.botjs.util.getList
 import com.sifsstudio.botjs.util.isItem
+import net.minecraft.core.particles.SimpleParticleType
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.Component
@@ -26,6 +27,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.network.PacketDistributor
+import java.util.*
 
 class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
 
@@ -37,6 +39,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
 
     private val inventory: SimpleContainer = SimpleContainer(9)
     val environment = BotEnv(this)
+    var uid = UUID.randomUUID()
 
     override fun getArmorSlots() = emptyList<ItemStack>()
 
@@ -52,53 +55,51 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
     override fun addAdditionalSaveData(pCompound: CompoundTag) {
         super.addAdditionalSaveData(pCompound)
         pCompound.put("upgrades", inventory.createTag())
-        if (!this.level.isClientSide) {
-            pCompound.put("environment", environment.serialize())
-        }
+        pCompound.putString("script", environment.controller.script)
+        pCompound.putBoolean("resume", environment.controller.resume)
     }
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
         super.readAdditionalSaveData(pCompound)
         inventory.removeAllItems()
         inventory.fromTag(pCompound.getList("upgrades", Tag.TAG_COMPOUND))
-        if (!this.level.isClientSide) {
-            environment.deserialize(pCompound.getCompound("environment"))
-        }
+        environment.controller.script = pCompound.getString("script")
+        environment.controller.resume = pCompound.getBoolean("resume")
     }
 
     override fun onAddedToWorld() {
         super.onAddedToWorld()
+        println(uid)
         if (!this.level.isClientSide) {
-            environment.add()
-            if (environment.serializedFrame.isNotEmpty()) {
-                environment.clearUpgrades()
+            if (environment.controller.resume) {
+                environment.controller.clearUpgrades()
                 for (i in 0 until inventory.containerSize) {
                     val itemStack = inventory.getItem(i)
                     if (itemStack != ItemStack.EMPTY && itemStack.item is UpgradeItem) {
                         (itemStack.item as UpgradeItem).upgrade(environment)
                     }
                 }
-                environment.launch()
             }
+            environment.controller.add()
         }
     }
 
     override fun tick() {
         super.tick()
         if (!this.level.isClientSide) {
-            environment.tick()
+            environment.controller.tick()
         }
     }
 
     override fun onRemovedFromWorld() {
         super.onRemovedFromWorld()
         if (!this.level.isClientSide) {
-            environment.remove()
+            environment.controller.remove()
         }
     }
 
     override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && !environment.running) {
+        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && environment.controller.runState.free) {
             if (!this.level.isClientSide) {
                 pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
                     BotMountMenu(
@@ -109,31 +110,50 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
                 }, Component.translatable("${BotJS.ID}.menu.bot_mount_title")))
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
-        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && !environment.running) {
+        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && environment.controller.runState.free) {
             if (!this.level.isClientSide) {
                 NetworkManager.INSTANCE.send(
                     PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
-                    ClientboundOpenProgrammerScreenPacket(this.id, environment.script)
+                    ClientboundOpenProgrammerScreenPacket(this.id, environment.controller.script)
                 )
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
-                if (!environment.running) {
-                    environment.clearUpgrades()
+                if (environment.controller.runState.free) {
+                    environment.controller.clearUpgrades()
                     for (i in 0 until inventory.containerSize) {
                         val itemStack = inventory.getItem(i)
                         if (itemStack != ItemStack.EMPTY && itemStack.item is UpgradeItem) {
                             (itemStack.item as UpgradeItem).upgrade(environment)
                         }
                     }
-                    environment.launch()
+                    environment.controller.launch()
                 } else {
-                    environment.terminateExecution()
+                    environment.controller.terminateExecution()
                 }
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         }
         return super.mobInteract(pPlayer, pHand)
+    }
+
+    fun genErrParticle(type: SimpleParticleType) {
+        level.server?.submitAsync {
+            for (i in 0..10) {
+                val vx = random.nextGaussian() * 0.02
+                val vy = random.nextGaussian() * 0.02
+                val vz = random.nextGaussian() * 0.02
+                level.addParticle(
+                    type,
+                    getRandomX(1.0),
+                    randomY + 1.0,
+                    getRandomZ(1.0),
+                    vx,
+                    vy,
+                    vz
+                )
+            }
+        }
     }
 }

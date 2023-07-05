@@ -4,10 +4,12 @@ import net.minecraft.core.*
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.StringTag
+import net.minecraft.nbt.Tag
 import net.minecraft.tags.TagKey
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
@@ -55,6 +57,10 @@ fun Position.dToLessEq(another: Position, maxDistance: Double): Boolean {
     return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ <= maxDistance * maxDistance
 }
 
+operator fun CompoundTag.set(key: String, value: Tag) = put(key, value)
+operator fun CompoundTag.set(key: String, value: String) = putString(key, value)
+operator fun CompoundTag.set(key: String, value: ByteArray) = putByteArray(key, value)
+
 val Vec3i.position get() = PositionImpl(x.toDouble(), y.toDouble(), z.toDouble())
 
 @Suppress("NOTHING_TO_INLINE")
@@ -62,3 +68,9 @@ inline fun Continuation<Unit>.resume() = resume(Unit)
 
 @Suppress("UNCHECKED_CAST")
 fun <T> nonnull(): T = null as T
+
+val BlockPos.chunkIn get() = ChunkPos(this)
+
+inline val Boolean.reversed get() = not()
+
+inline fun Boolean.ifRun(block: () -> Unit) = this.also { if(it)block() }

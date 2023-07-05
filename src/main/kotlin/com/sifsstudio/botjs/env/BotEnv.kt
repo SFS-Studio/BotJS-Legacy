@@ -7,12 +7,14 @@ import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
+import com.sifsstudio.botjs.env.storage.BotDataStorage
+import com.sifsstudio.botjs.env.storage.BotSavedData
 import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.task.TaskHandler
 import com.sifsstudio.botjs.env.task.TickableTask
+import com.sifsstudio.botjs.util.ThreadLoop
 import kotlinx.coroutines.*
 import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.nbt.CompoundTag
 import net.minecraftforge.event.server.ServerAboutToStartEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
 import org.apache.commons.codec.binary.Base64
@@ -27,180 +29,82 @@ import kotlin.time.TimeSource
 
 class BotEnv(val entity: BotEntity) {
 
-    var script = ""
-    var running = false
-        private set
-    var tickable = false
-        private set
     val taskHandler = TaskHandler(this)
     private lateinit var scope: ScriptableObject
     lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
 
-    //For quick matching
-    private val characteristics: MutableMap<EnvCharacteristic.Key<*>, EnvCharacteristic> = mutableMapOf()
     var runJob: Job? = null
         private set
     var serializedFrame = ""
 
-    fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
+    val controller = Controller()
 
-    inline fun install(ability: (BotEnv) -> AbilityBase) = install(ability(this))
+    //Environment characteristics
+    //For quick matching
+    private val chars: MutableMap<EnvCharacteristic.Key<*>, EnvCharacteristic> = mutableMapOf()
 
-    fun characteristics(): Set<EnvCharacteristic.Key<*>> = characteristics.keys
-
+    fun chars(): Set<EnvCharacteristic.Key<*>> = chars.keys
     @Suppress("UNCHECKED_CAST")
-    operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = characteristics[key] as T?
+    operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = chars[key] as T?
 
     operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T?) {
         if (char == null) {
-            characteristics.remove(key)?.onRemovedFromEnv(this)
+            chars.remove(key)?.onRemovedFromEnv(this)
         } else {
-            characteristics[key] = char
+            chars[key] = char
             char.onAddedToEnv(this)
         }
     }
 
-    fun clearUpgrades() {
-        abilities.clear()
-        characteristics.forEach { (_, v) -> v.onRemovedFromEnv(this) }
-        characteristics.clear()
-    }
-
     private suspend fun run() {
         // fixme: particle not generated
-        running = true
-        suspendableContext { context ->
+        suspendableContext sc@ { context ->
             context.optimizationLevel = -1
-            characteristics.values.forEach { it.onActive(this@BotEnv) }
-            scope = context.initStandardObjects().apply {
-                defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
-            }
-            if (serializedFrame.isEmpty()) {
+            chars.values.forEach { it.onActive(this@BotEnv) }
+            while(true) {
                 try {
-                    val botScript = context.compileString(script, "Bot Code", 0, null)
-                    cacheScope = NativeObject()
-                    context.runScriptSuspend(botScript, scope)
-                } catch (pending: ContinuationPending) {
-                    scope.delete("bot") // Depends on the bot entity
-                    serializedFrame = getSerializedFrame(context, pending.continuation)
-                    if (pending.applicationState != null) {
-                        check(pending.applicationState is TaskFuture<*>)
-                        taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
+                    if (serializedFrame.isEmpty()) {
+                        LaunchMode.launchClean(context as EnvContext, this)
+                    } else {
+                        LaunchMode.launchResume(context as EnvContext, this)
                     }
+                } catch (pending: ContinuationPending) {
+                    val aS = pending.applicationState
+                    check(aS == null || aS is TaskFuture<*>)
+                    scope.discardRuntime() // Depends on the bot entity
+                    serializedFrame = getSerializedFrame(context, pending.continuation, aS as TaskFuture<*>?)
+                    if(ThreadLoop.Main.await(false) { controller.loaded }) {
+                        continue
+                    } else return@sc
                 } catch (exception: Exception) {
                     if (exception is WrappedException && exception.wrappedException is CancellationException || exception is CancellationException) {
-                        entity.level.server?.submitAsync {
-                            for (i in 0..10) {
-                                val vx = entity.random.nextGaussian() * 0.02
-                                val vy = entity.random.nextGaussian() * 0.02
-                                val vz = entity.random.nextGaussian() * 0.02
-                                entity.level.addParticle(
-                                    ParticleTypes.CRIT,
-                                    entity.getRandomX(1.0),
-                                    entity.randomY + 1.0,
-                                    entity.getRandomZ(1.0),
-                                    vx,
-                                    vy,
-                                    vz
-                                )
-                            }
-                        }
+                        entity.genErrParticle(ParticleTypes.CRIT)
                     } else if (exception is WrappedException && exception.wrappedException is TimeoutException || exception is TimeoutException) {
-                        entity.level.server?.submitAsync {
-                            for (i in 0..10) {
-                                val vx = entity.random.nextGaussian() * 0.02
-                                val vy = entity.random.nextGaussian() * 0.02
-                                val vz = entity.random.nextGaussian() * 0.02
-                                entity.level.addParticle(
-                                    ParticleTypes.SMOKE,
-                                    entity.getRandomX(1.0),
-                                    entity.randomY + 1.0,
-                                    entity.getRandomZ(1.0),
-                                    vx,
-                                    vy,
-                                    vz
-                                )
-                            }
-                        }
+                        entity.genErrParticle(ParticleTypes.SMOKE)
                     } else {
                         exception.printStackTrace()
                     }
                 } finally {
-                    characteristics.values.forEach { it.onDeactive(this@BotEnv) }
-                    running = false
+                    chars.values.forEach { it.onDeactive(this@BotEnv) }
                 }
-            } else {
-                val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
-                val sis = EnvInputStream(this@BotEnv, bais, scope)
-                val continuation = sis.readObject()
-                scope = (sis.readObject() as ScriptableObject).apply {
-                    defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
-                }
-                cacheScope = sis.readObject() as NativeObject
-                try {
-                    val ret = taskHandler.resume() ?: return
-                    context.resumeSuspend(continuation, scope, ret)
-                    serializedFrame = ""
-                } catch (pending: ContinuationPending) {
-                    scope.delete("bot") // Depends on the bot entity
-                    serializedFrame = getSerializedFrame(context, pending.continuation)
-                    if (pending.applicationState != null) {
-                        check(pending.applicationState is TaskFuture<*>)
-                        taskHandler.storeReturn(pending.applicationState as TaskFuture<*>)
-                    }
-                } catch (exception: Exception) {
-                    if (exception is WrappedException && exception.wrappedException is CancellationException || exception is CancellationException) {
-                        entity.level.server?.submitAsync {
-                            for (i in 0..10) {
-                                val vx = entity.random.nextGaussian() * 0.02
-                                val vy = entity.random.nextGaussian() * 0.02
-                                val vz = entity.random.nextGaussian() * 0.02
-                                entity.level.addParticle(
-                                    ParticleTypes.CRIT,
-                                    entity.getRandomX(1.0),
-                                    entity.randomY + 1.0,
-                                    entity.getRandomZ(1.0),
-                                    vx,
-                                    vy,
-                                    vz
-                                )
-                            }
-                        }
-                    } else if (exception is WrappedException && exception.wrappedException is TimeoutException || exception is TimeoutException) {
-                        entity.level.server?.submitAsync {
-                            for (i in 0..10) {
-                                val vx = entity.random.nextGaussian() * 0.02
-                                val vy = entity.random.nextGaussian() * 0.02
-                                val vz = entity.random.nextGaussian() * 0.02
-                                entity.level.addParticle(
-                                    ParticleTypes.SMOKE,
-                                    entity.getRandomX(1.0),
-                                    entity.randomY + 1.0,
-                                    entity.getRandomZ(1.0),
-                                    vx,
-                                    vy,
-                                    vz
-                                )
-                            }
-                        }
-                    } else {
-                        exception.printStackTrace()
-                    }
-                    serializedFrame = ""
-                    taskHandler.reset()
-                } finally {
-                    characteristics.values.forEach { it.onDeactive(this@BotEnv) }
-                    running = false
-                }
+                reset()
+                break
             }
         }
     }
 
-    fun tick() {
-        if (running) {
-            taskHandler.tick()
-        }
+    private fun reset() {
+        serializedFrame = ""
+        taskHandler.reset()
+    }
+
+    private fun ScriptableObject.initRuntime() {
+        defineProperty("bot", Bot(this@BotEnv, abilities), ScriptableObject.READONLY)
+    }
+
+    private fun ScriptableObject.discardRuntime() {
+        delete("bot")
     }
 
     fun <T : Any> submit(task: TickableTask<T>, willBlock: Boolean): TaskFuture<T> {
@@ -210,7 +114,7 @@ class BotEnv(val entity: BotEntity) {
         val cx = Context.getCurrentContext() as EnvContext
         cx.startTime = TimeSource.Monotonic.markNow()
         val result = taskHandler.submit(task)
-        if (!tickable && !willBlock) {
+        if (!controller.runState.tickable && !willBlock) {
             val pending = cx.captureContinuation()
             pending.applicationState = result
             throw pending
@@ -226,53 +130,151 @@ class BotEnv(val entity: BotEntity) {
         return future.result
     }
 
-    fun add() {
-        tickable = true
-    }
-
-    fun remove() {
-        tickable = false
-        taskHandler.suspend(false)
-    }
-
-    private fun getSerializedFrame(context: Context, continuation: Any): String {
+    //Serialization operation
+    private fun getSerializedFrame(context: Context, continuation: Any, result: TaskFuture<*>?): String {
         val baos = ByteArrayOutputStream()
         val sos = EnvOutputStream(this, baos, context.initStandardObjects())
         sos.writeObject(continuation)
         sos.writeObject(scope)
         sos.writeObject(cacheScope)
+        sos.writeBoolean(result != null)
+        result?.let {
+            sos.simpleFuture = true
+            sos.writeObject(it)
+        }
         return Base64.encodeBase64String(baos.toByteArray())
     }
 
-    @Synchronized
-    fun serialize() = CompoundTag().apply {
-        putString("script", script)
-        putString("serializedFrame", serializedFrame)
-        put("tasks", taskHandler.serialize())
-    }
+    fun serialize() = BotSavedData(serializedFrame, taskHandler.serialize())
 
-    @Synchronized
-    fun deserialize(compound: CompoundTag) {
-        script = compound.getString("script")
-        serializedFrame = compound.getString("serializedFrame")
-        taskHandler.deserialize(compound.getCompound("tasks"))
-    }
-
-    @Synchronized
-    fun terminateExecution() {
-        check(running)
-        taskHandler.suspend(true)
-        runJob?.cancel()
-    }
-
-    @Synchronized
-    fun launch() {
-        if (running) {
-            return
+    fun deserialize(data: BotSavedData) {
+        data.let {
+            serializedFrame = it.frame
+            taskHandler.deserialize(it.tasks)
         }
-        runJob = BOT_SCOPE.launch {
-            run()
+    }
+    object LaunchMode {
+        suspend fun launchClean(context: EnvContext, suspension: SuspensionContext) {
+            with(suspension) {
+                with(context.environment) {
+                    check(serializedFrame.isEmpty())
+                    scope = context.initStandardObjects()
+                    scope.initRuntime()
+                    val botScript = context.compileString(controller.script, "Bot Code", 0, null)
+                    cacheScope = NativeObject()
+                    context.runScriptSuspend(botScript, scope)
+                }
+            }
         }
+        suspend fun launchResume(context: EnvContext, suspension: SuspensionContext) {
+            with(suspension) {
+                with(context.environment) {
+                    check(serializedFrame.isNotEmpty())
+                    val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
+                    val sis = EnvInputStream(this, bais, context.initStandardObjects().apply { initRuntime() })
+                    val continuation = sis.readObject()
+                    scope = sis.readObject() as ScriptableObject
+                    scope.initRuntime()
+                    cacheScope = sis.readObject() as NativeObject
+                    val ret = if(sis.readBoolean()) {
+                        sis.readObject() as TaskFuture<*>
+                    } else taskHandler.resume()
+                    context.resumeSuspend(continuation, scope, ret)
+                }
+            }
+        }
+    }
+    //Handle operation from server thread
+    //All state read/write across threads shall be executed on the main thread
+    inner class Controller internal constructor() {
+        var script = ""
+        var resume = false
+        //R/W across threads
+        var runState = EnvState.READY
+        var loaded = false
+            private set
+
+        private var reloadHandle: ThreadLoop.DisposableHandle? = null
+
+        fun terminateExecution() {
+            check(runState != EnvState.READY)
+            if(runState == EnvState.TERMINATING) return
+            runState = EnvState.TERMINATING
+            taskHandler.suspend(true)
+            runJob?.cancel()
+        }
+
+        fun launch() {
+            if (runState.ordinal > 0) {
+                return
+            }
+            runState = EnvState.RUNNING
+            runJob = BOT_SCOPE.launch {
+                val entity = this@BotEnv.entity
+                var data = BotDataStorage.readData(entity)
+                data?.let { deserialize(it) }
+                run()
+                data = serialize()
+                BotDataStorage.writeData(entity, BotSavedData.serialize(data))
+                ThreadLoop.Main.await(true) { runState = EnvState.READY }
+            }
+        }
+
+        private fun relaunch(): Boolean {
+            if(runState != EnvState.READY) {
+                return false
+            }
+            launch()
+            return true
+        }
+
+        fun add() {
+            loaded = true
+            when(runState) {
+                EnvState.UNLOADING -> {
+                    if(reloadHandle == null) {
+                        reloadHandle = ThreadLoop.Main.schedule(::relaunch)
+                    }
+                }
+                EnvState.READY -> {
+                    if(resume) {
+                        launch()
+                    }
+                }
+                else -> {}
+            }
+        }
+
+        fun remove() {
+            loaded = false
+            when(runState) {
+                EnvState.RUNNING -> {
+                    runState = EnvState.UNLOADING
+                    resume = true
+                    taskHandler.suspend(false)
+                }
+                else -> {}
+            }
+            reloadHandle?.dispose()
+            reloadHandle = null
+        }
+
+        fun tick() {
+            if (runState == EnvState.RUNNING) {
+                taskHandler.tick()
+            }
+        }
+
+        fun clearUpgrades() {
+            abilities.clear()
+            chars.forEach { (_, v) -> v.onRemovedFromEnv(this@BotEnv) }
+            chars.clear()
+        }
+
+        fun install(ability: AbilityBase) = abilities.put(ability.id, ability)
+
+        inline fun install(ability: (BotEnv) -> AbilityBase) = install(ability(this@BotEnv))
+
     }
 
     class EnvContext(factory: ContextFactory) : Context(factory) {
@@ -280,19 +282,20 @@ class BotEnv(val entity: BotEntity) {
         lateinit var environment: BotEnv
     }
 
+    enum class EnvState(val free: Boolean, val tickable: Boolean, val stopping: Boolean) {
+        READY(true, false, false),
+        RUNNING(false, true, false),
+        TERMINATING(false, false, true),
+        UNLOADING(false, false, true)
+    }
+
     companion object {
         private val BOT_THREAD_ID = AtomicInteger(0)
         private val CTX_FACTORY: ContextFactory = object : ContextFactory() {
-            override fun hasFeature(cx: Context, featureIndex: Int): Boolean {
-                if (featureIndex == Context.FEATURE_ENABLE_JAVA_MAP_ACCESS) {
-                    return true
-                }
-                return super.hasFeature(cx, featureIndex)
-            }
+            override fun hasFeature(cx: Context, featureIndex: Int) =
+                featureIndex == Context.FEATURE_ENABLE_JAVA_MAP_ACCESS || super.hasFeature(cx, featureIndex)
 
-            override fun makeContext(): Context {
-                return EnvContext(this).apply { instructionObserverThreshold = 10000 }
-            }
+            override fun makeContext() = EnvContext(this).apply { instructionObserverThreshold = 10000 }
 
             override fun observeInstructionCount(cx: Context, instructionCount: Int) {
                 val ecx = cx as EnvContext
@@ -319,6 +322,7 @@ class BotEnv(val entity: BotEntity) {
         private lateinit var BOT_SCOPE: CoroutineScope
 
         init {
+            //FIXME: Another mod using Rhino might broke
             ContextFactory.initGlobal(CTX_FACTORY)
         }
 

@@ -6,18 +6,22 @@ import com.sifsstudio.botjs.util.getList
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Suppress("unchecked_cast")
 class TaskHandler(private val env: BotEnv) {
-    private val tickingTasks: MutableList<TaskHandle<*>> = mutableListOf()
-    private var pendingTask: Pair<TaskHandle<*>, Boolean>? = null
+    private val tickingTasks: MutableList<TaskHandle<*>> = CopyOnWriteArrayList()
+    private var pendingTask: TaskHandle<*>? = null
     private val parker: Parker = Parker()
+    private var suspended: AtomicBoolean = AtomicBoolean(false)
 
     fun <T : Any> associate(future: TaskFuture<T>, ordinal: Int) {
         check(ordinal in -1..tickingTasks.size)
         val handle = if (ordinal == -1) {
-            check(pendingTask != null)
-            pendingTask!!.first
+            val pT = pendingTask
+            check(pT != null)
+            pT
         } else {
             tickingTasks[ordinal]
         } as TaskHandle<T>
@@ -28,19 +32,16 @@ class TaskHandler(private val env: BotEnv) {
     fun ordinal(future: TaskFuture<*>): Int = tickingTasks.indexOfFirst { it.hasFuture && it.future == future }
 
     suspend fun resume(): Any? {
-        val pendingTask = checkNotNull(pendingTask)
-        return if (pendingTask.second) {
-            val future = pendingTask.first.future
-            future.join(parker)
-            if (!future.isDone) {
-                null
-            } else future.result
-        } else pendingTask.first
+        val pendingTask = pendingTask ?: return null
+        val future = pendingTask.future
+        future.join(parker)
+        return if (!future.isDone) {
+            null
+        } else future.result
     }
 
-    @Synchronized
     fun tick() {
-        if (!env.tickable) {
+        if (!env.controller.runState.tickable || suspended.get()) {
             return
         }
         tickingTasks.removeIf {
@@ -52,19 +53,19 @@ class TaskHandler(private val env: BotEnv) {
                 true
             } else false
         }
-        val pendingFuture = pendingTask
-        if (pendingFuture != null && pendingFuture.second) {
-            val result = pendingFuture.first.task.tick()
+        val pending = pendingTask
+        if (pending != null) {
+            val result = pending.task.tick()
             if (result.isDone) {
                 this.pendingTask = null
-                pendingFuture.first.future.done(result.result!!)
+                pending.future.done(result.result!!)
                 parker.unpark()
             }
         }
     }
 
-    @Synchronized
     fun suspend(terminate: Boolean) {
+        suspended.set(true)
         if (parker.parking) {
             if (terminate) {
                 parker.interrupt()
@@ -74,10 +75,10 @@ class TaskHandler(private val env: BotEnv) {
         }
     }
 
-    @Synchronized
     private fun <T : Any> findTask(future: TaskFuture<T>): TaskHandle<T>? {
-        return if (pendingTask != null && pendingTask!!.first.future == future) {
-            pendingTask!!.first as TaskHandle<T>
+        val pT = pendingTask
+        return if (pT != null && pT.future == future) {
+            pT as TaskHandle<T>
         } else {
             tickingTasks.firstOrNull { it.future == future } as TaskHandle<T>?
         }
@@ -87,6 +88,7 @@ class TaskHandler(private val env: BotEnv) {
     fun reset() {
         pendingTask = null
         tickingTasks.clear()
+        suspended.set(false)
     }
 
     fun <T : Any> submit(task: TickableTask<T>): TaskFuture<T> {
@@ -103,26 +105,22 @@ class TaskHandler(private val env: BotEnv) {
                 while (hasNext()) {
                     val now = next()
                     if (now.future == future) {
-                        pendingTask = Pair(now, true)
+                        pendingTask = now
                         remove()
                         break
                     }
                 }
             }
         }
-        future.join(parker)
-    }
-
-    fun storeReturn(future: TaskFuture<*>) {
-        check(pendingTask == null)
-        pendingTask = Pair(checkNotNull(findTask(future)), false)
+        if(!suspended.get()) {
+            future.join(parker)
+        }
     }
 
     @Synchronized
     fun serialize() = CompoundTag().apply {
         pendingTask?.let {
-            putBoolean("pendingTaskSuspended", it.second)
-            TickableTask.serialize(it.first.task)
+            TickableTask.serialize(it.task)
         }?.let { this@apply.put("pendingTask", it) }
         val others = ListTag()
         tickingTasks.forEach {
@@ -133,9 +131,8 @@ class TaskHandler(private val env: BotEnv) {
 
     @Synchronized
     fun deserialize(compound: CompoundTag) {
-        pendingTask =
-            TickableTask.deserialize(compound.getCompound("pendingTask"), env)
-                ?.let { Pair(TaskHandle(it), compound.getBoolean("pendingTaskSuspended")) }
+        pendingTask = TickableTask.deserialize(compound.getCompound("pendingTask"), env)
+            ?.let { TaskHandle(it) }
         if (pendingTask != null) {
             associate(TaskFuture(), -1)
         }

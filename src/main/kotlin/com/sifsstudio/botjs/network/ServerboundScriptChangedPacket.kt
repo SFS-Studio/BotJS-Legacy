@@ -21,7 +21,7 @@ data class ServerboundScriptChangedPacket(
             ctx.get().apply {
                 enqueueWork {
                     val bot = sender!!.getLevel().getEntity(msg.entityId) as BotEntity?
-                    bot?.environment?.script = msg.script
+                    bot?.run { environment.controller.script = msg.script }
                 }
                 packetHandled = true
             }

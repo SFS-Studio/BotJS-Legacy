@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
@@ -45,6 +46,7 @@ class BotEnv(val entity: BotEntity) {
     private val chars: MutableMap<EnvCharacteristic.Key<*>, EnvCharacteristic> = mutableMapOf()
 
     fun chars(): Set<EnvCharacteristic.Key<*>> = chars.keys
+
     @Suppress("UNCHECKED_CAST")
     operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = chars[key] as T?
 
@@ -59,10 +61,10 @@ class BotEnv(val entity: BotEntity) {
 
     private suspend fun run() {
         // fixme: particle not generated
-        suspendableContext sc@ { context ->
+        suspendableContext sc@{ context ->
             context.optimizationLevel = -1
             chars.values.forEach { it.onActive(this@BotEnv) }
-            while(true) {
+            while (true) {
                 try {
                     if (serializedFrame.isEmpty()) {
                         LaunchMode.launchClean(context as EnvContext, this)
@@ -74,7 +76,7 @@ class BotEnv(val entity: BotEntity) {
                     check(aS == null || aS is TaskFuture<*>)
                     scope.discardRuntime() // Depends on the bot entity
                     serializedFrame = getSerializedFrame(context, pending.continuation, aS as TaskFuture<*>?)
-                    if(ThreadLoop.Main.await(false) { controller.loaded }) {
+                    if (ThreadLoop.Main.await(false) { controller.loaded }) {
                         continue
                     } else return@sc
                 } catch (exception: Exception) {
@@ -114,7 +116,7 @@ class BotEnv(val entity: BotEntity) {
         val cx = Context.getCurrentContext() as EnvContext
         cx.startTime = TimeSource.Monotonic.markNow()
         val result = taskHandler.submit(task)
-        if (!controller.runState.tickable && !willBlock) {
+        if (!controller.runState.get().tickable && !willBlock) {
             val pending = cx.captureContinuation()
             pending.applicationState = result
             throw pending
@@ -153,6 +155,7 @@ class BotEnv(val entity: BotEntity) {
             taskHandler.deserialize(it.tasks)
         }
     }
+
     object LaunchMode {
         suspend fun launchClean(context: EnvContext, suspension: SuspensionContext) {
             with(suspension) {
@@ -166,6 +169,7 @@ class BotEnv(val entity: BotEntity) {
                 }
             }
         }
+
         suspend fun launchResume(context: EnvContext, suspension: SuspensionContext) {
             with(suspension) {
                 with(context.environment) {
@@ -176,7 +180,7 @@ class BotEnv(val entity: BotEntity) {
                     scope = sis.readObject() as ScriptableObject
                     scope.initRuntime()
                     cacheScope = sis.readObject() as NativeObject
-                    val ret = if(sis.readBoolean()) {
+                    val ret = if (sis.readBoolean()) {
                         sis.readObject() as TaskFuture<*>
                     } else taskHandler.resume()
                     context.resumeSuspend(continuation, scope, ret)
@@ -184,83 +188,144 @@ class BotEnv(val entity: BotEntity) {
             }
         }
     }
+
     //Handle operation from server thread
     //All state read/write across threads shall be executed on the main thread
     inner class Controller internal constructor() {
         var script = ""
         var resume = false
+
         //R/W across threads
-        var runState = EnvState.READY
+        var runState = AtomicReference(EnvState.READY)
         var loaded = false
             private set
 
         private var reloadHandle: ThreadLoop.DisposableHandle? = null
 
         fun terminateExecution() {
-            check(runState != EnvState.READY)
-            if(runState == EnvState.TERMINATING) return
-            runState = EnvState.TERMINATING
-            taskHandler.suspend(true)
-            runJob?.cancel()
+            var cur = runState.get()
+            while (true) {
+                val witness = runState.compareAndExchangeAcquire(cur, EnvState.TERMINATING)
+                if (witness == cur) {
+                    // done
+                    check(witness != EnvState.READY)
+                    if (witness == EnvState.TERMINATING) {
+                        return
+                    }
+
+                    taskHandler.suspend(true)
+                    runJob?.cancel()
+                    break
+                } else {
+                    cur = witness;
+                }
+                Thread.onSpinWait()
+            }
+//            check(runState != EnvState.READY)
+//            if(runState == EnvState.TERMINATING) return
+//            runState = EnvState.TERMINATING
+//            taskHandler.suspend(true)
+//            runJob?.cancel()
         }
 
         fun launch() {
-            if (runState.ordinal > 0) {
-                return
+            var cur = runState.get()
+            while (true) {
+
+                val witness = runState.compareAndExchangeAcquire(cur, EnvState.RUNNING)
+
+                if (witness == cur) {
+                    // done
+                    if (witness.ordinal > 0) {
+                        return;
+                    }
+
+                    runJob = BOT_SCOPE.launch {
+                        val entity = this@BotEnv.entity
+                        var data = BotDataStorage.readData(entity)
+                        data?.let { deserialize(it) }
+                        run()
+                        data = serialize()
+                        BotDataStorage.writeData(entity, BotSavedData.serialize(data))
+                        ThreadLoop.Main.await(true) { runState.set(EnvState.READY) }
+                    }
+                    break
+                } else {
+                    cur = witness
+                }
+                Thread.onSpinWait()
             }
-            runState = EnvState.RUNNING
-            runJob = BOT_SCOPE.launch {
-                val entity = this@BotEnv.entity
-                var data = BotDataStorage.readData(entity)
-                data?.let { deserialize(it) }
-                run()
-                data = serialize()
-                BotDataStorage.writeData(entity, BotSavedData.serialize(data))
-                ThreadLoop.Main.await(true) { runState = EnvState.READY }
-            }
+
+//            if (runState.ordinal > 0) {
+//                return
+//            }
+//            runState = EnvState.RUNNING
+//            runJob = BOT_SCOPE.launch {
+//                val entity = this@BotEnv.entity
+//                var data = BotDataStorage.readData(entity)
+//                data?.let { deserialize(it) }
+//                run()
+//                data = serialize()
+//                BotDataStorage.writeData(entity, BotSavedData.serialize(data))
+//                ThreadLoop.Main.await(true) { runState = EnvState.READY }
+//            }
         }
 
         private fun relaunch(): Boolean {
-            if(runState != EnvState.READY) {
+            if (runState.get() != EnvState.READY) {
                 return false
             }
             launch()
             return true
+
+//            if(runState != EnvState.READY) {
+//                return false
+//            }
+//            launch()
+//            return true
         }
 
         fun add() {
             loaded = true
-            when(runState) {
+
+            when (runState.get()) {
                 EnvState.UNLOADING -> {
-                    if(reloadHandle == null) {
+                    if (reloadHandle == null) {
                         reloadHandle = ThreadLoop.Main.schedule(::relaunch)
                     }
                 }
+
                 EnvState.READY -> {
-                    if(resume) {
+                    if (resume) {
                         launch()
                     }
                 }
+
                 else -> {}
             }
         }
 
         fun remove() {
             loaded = false
-            when(runState) {
-                EnvState.RUNNING -> {
-                    runState = EnvState.UNLOADING
-                    resume = true
-                    taskHandler.suspend(false)
-                }
-                else -> {}
+
+            if (runState.compareAndSet(EnvState.RUNNING, EnvState.UNLOADING)) {
+                resume = true
+                taskHandler.suspend(false)
             }
+//            when(runState) {
+//                EnvState.RUNNING -> {
+//                    runState = EnvState.UNLOADING
+//                    resume = true
+//                    taskHandler.suspend(false)
+//                }
+//                else -> {}
+//            }
             reloadHandle?.dispose()
             reloadHandle = null
         }
 
         fun tick() {
-            if (runState == EnvState.RUNNING) {
+            if (runState.get() == EnvState.RUNNING) {
                 taskHandler.tick()
             }
         }

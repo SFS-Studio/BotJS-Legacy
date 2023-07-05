@@ -41,7 +41,7 @@ class TaskHandler(private val env: BotEnv) {
     }
 
     fun tick() {
-        if (!env.controller.runState.tickable || suspended.get()) {
+        if (!env.controller.runState.get().tickable || suspended.get()) {
             return
         }
         tickingTasks.removeIf {
@@ -66,12 +66,10 @@ class TaskHandler(private val env: BotEnv) {
 
     fun suspend(terminate: Boolean) {
         suspended.set(true)
-        if (parker.parking) {
-            if (terminate) {
-                parker.interrupt()
-            } else {
-                parker.unpark()
-            }
+        if (terminate) {
+            parker.interrupt()
+        } else {
+            parker.unpark()
         }
     }
 
@@ -112,7 +110,7 @@ class TaskHandler(private val env: BotEnv) {
                 }
             }
         }
-        if(!suspended.get()) {
+        if (!suspended.get()) {
             future.join(parker)
         }
     }

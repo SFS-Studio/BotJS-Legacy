@@ -76,7 +76,7 @@ class BotEnv(val entity: BotEntity) {
                     check(aS == null || aS is TaskFuture<*>)
                     scope.discardRuntime() // Depends on the bot entity
                     serializedFrame = getSerializedFrame(context, pending.continuation, aS as TaskFuture<*>?)
-                    if (ThreadLoop.Main.await(false) { controller.loaded }) {
+                    if (ThreadLoop.Main.await(true) { controller.loaded }) {
                         continue
                     } else return@sc
                 } catch (exception: Exception) {
@@ -205,6 +205,9 @@ class BotEnv(val entity: BotEntity) {
         fun terminateExecution() {
             var cur = runState.get()
             while (true) {
+                if (cur == EnvState.READY) {
+                    return
+                }
                 val witness = runState.compareAndExchangeAcquire(cur, EnvState.TERMINATING)
                 if (witness == cur) {
                     // done
@@ -219,7 +222,6 @@ class BotEnv(val entity: BotEntity) {
                 } else {
                     cur = witness;
                 }
-                Thread.onSpinWait()
             }
 //            check(runState != EnvState.READY)
 //            if(runState == EnvState.TERMINATING) return
@@ -229,31 +231,18 @@ class BotEnv(val entity: BotEntity) {
         }
 
         fun launch() {
-            var cur = runState.get()
-            while (true) {
-
-                val witness = runState.compareAndExchangeAcquire(cur, EnvState.RUNNING)
-
-                if (witness == cur) {
-                    // done
-                    if (witness.ordinal > 0) {
-                        return;
+            if (runState.compareAndSet(EnvState.READY, EnvState.RUNNING)) {
+                runJob = BOT_SCOPE.launch {
+                    val entity = this@BotEnv.entity
+                    var data = BotDataStorage.readData(entity)
+                    data?.let { deserialize(it) }
+                    run()
+                    data = serialize()
+                    BotDataStorage.writeData(entity, BotSavedData.serialize(data))
+                    ThreadLoop.Main.await(true) {
+                        runState.set(EnvState.READY)
                     }
-
-                    runJob = BOT_SCOPE.launch {
-                        val entity = this@BotEnv.entity
-                        var data = BotDataStorage.readData(entity)
-                        data?.let { deserialize(it) }
-                        run()
-                        data = serialize()
-                        BotDataStorage.writeData(entity, BotSavedData.serialize(data))
-                        ThreadLoop.Main.await(true) { runState.set(EnvState.READY) }
-                    }
-                    break
-                } else {
-                    cur = witness
                 }
-                Thread.onSpinWait()
             }
 
 //            if (runState.ordinal > 0) {

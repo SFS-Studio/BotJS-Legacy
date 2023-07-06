@@ -17,7 +17,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-sealed class ThreadLoop: Executor {
+sealed class ThreadLoop : Executor {
     inner class DisposableHandle(private val value: Any) {
         fun dispose() = tasks.remove(value)
     }
@@ -25,7 +25,7 @@ sealed class ThreadLoop: Executor {
     protected val tasks = ConcurrentLinkedQueue<() -> Boolean>()
 
     fun handleThrowable(th: Throwable) {
-        th.printStackTrace()
+        throw th
     }
 
     fun schedule(block: () -> Boolean): DisposableHandle {
@@ -40,18 +40,18 @@ sealed class ThreadLoop: Executor {
         }
     }
 
-    fun<T> submit(block: () -> T): CompletableFuture<T> {
+    fun <T> submit(block: () -> T): CompletableFuture<T> {
         val fut = CompletableFuture<T>()
         val handle = schedule {
             try {
                 fut.complete(block())
-            } catch(t: Throwable) {
+            } catch (t: Throwable) {
                 fut.completeExceptionally(t)
             }
             true
         }
         fut.whenComplete { _, th ->
-            if(th is CancellationException) {
+            if (th is CancellationException) {
                 handle.dispose()
             }
         }
@@ -60,10 +60,10 @@ sealed class ThreadLoop: Executor {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    suspend inline fun<T> await(uninterruptible: Boolean, crossinline block: () -> T): T {
-        if(uninterruptible) {
+    suspend inline fun <T> await(uninterruptible: Boolean, crossinline block: () -> T): T {
+        if (uninterruptible) {
             return suspendCoroutine { cont ->
-                schedule sc@ {
+                schedule sc@{
                     val value: T
                     try {
                         value = block()
@@ -77,7 +77,7 @@ sealed class ThreadLoop: Executor {
             }
         } else {
             return suspendCancellableCoroutine { cont ->
-                val handle = schedule sc@ {
+                val handle = schedule sc@{
                     val value: T
                     try {
                         value = block()
@@ -95,7 +95,7 @@ sealed class ThreadLoop: Executor {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun waitUntil(uninterruptible: Boolean, block: () -> Boolean) {
-        if(uninterruptible) {
+        if (uninterruptible) {
             //The 'useless' type variable definition should not be deleted
             //As the compiler cannot handle such condition and do not compile
             //See https://youtrack.jetbrains.com/issue/KT-53740/Builder-inference-with-multiple-lambdas-leads-to-unsound-type
@@ -114,15 +114,16 @@ sealed class ThreadLoop: Executor {
             }
         }
     }
+
     suspend inline fun sync() = await(false) {}
 
-    object Main: ThreadLoop() {
+    object Main : ThreadLoop() {
         fun onStart(event: ServerStartingEvent) {
             tasks.clear()
         }
 
         fun onTick(event: TickEvent) {
-            if(event.phase == TickEvent.Phase.END) {
+            if (event.phase == TickEvent.Phase.END) {
                 tasks.removeIf { it() }
             }
         }
@@ -132,12 +133,13 @@ sealed class ThreadLoop: Executor {
         }
     }
 
-    object Sync: ThreadLoop() {
-        private val runner = thread(false) block@ {
-            while(!Thread.interrupted()) {
+    object Sync : ThreadLoop() {
+        private val runner = thread(false) block@{
+            while (!Thread.interrupted()) {
                 tasks.removeIf { it() }
             }
         }
+
         fun onStart(event: ServerStartingEvent) {
             tasks.clear()
             runner.start()

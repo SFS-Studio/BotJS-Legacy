@@ -4,7 +4,7 @@ import com.sifsstudio.botjs.util.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.atomic.AtomicInteger
-
+// fixme: check unpark && park more than once if need.
 /**
  * Utility class holding park/unpark control
  */

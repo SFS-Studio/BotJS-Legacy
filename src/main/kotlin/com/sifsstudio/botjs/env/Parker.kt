@@ -3,36 +3,58 @@ package com.sifsstudio.botjs.env
 import com.sifsstudio.botjs.util.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Utility class holding park/unpark control
+ *
+ * (park, unpark/interrupt) should be together without more than once
+ *
+ * The order of (park, unpark) doesn't matter
  */
 class Parker {
     private var continuation: CancellableContinuation<Unit>? = null
-    var parking = false
+
+    /**
+     * 0 for init state
+     * 1 for parked
+     * 2 for unpark
+     * 3 for cancel
+     */
+    private var operatedResult = AtomicInteger(0)
 
     suspend fun park() {
-        check(!parking) { "Something is currently parking on this parker! This should not be possible." }
-        parking = true
+
         try {
             suspendCancellableCoroutine {
                 continuation = it
+                val result = operatedResult.compareAndExchangeRelease(0, 1);
+                if (result == 2) {
+                    it.resume()
+                } else if (result == 3) {
+                    it.cancel()
+                }
             }
         } finally {
-            parking = false
+            operatedResult.setRelease(0)
             continuation = null
         }
     }
 
-    @Synchronized
+
     fun unpark() {
-        check(parking) { "Nothing is currently blocked on this parker!" }
-        continuation!!.resume()
+        val result = operatedResult.compareAndExchangeAcquire(0, 2);
+        if (result == 1) {
+            check(continuation != null) { "MUST NOT BE NULL" }
+            continuation!!.resume()
+        }
     }
 
-    @Synchronized
     fun interrupt() {
-        check(parking)
-        continuation!!.cancel()
+        val result = operatedResult.compareAndExchangeAcquire(0, 3);
+        if (result == 1) {
+            check(continuation != null) { "MUST NOT BE NULL" }
+            continuation!!.cancel()
+        }
     }
 }

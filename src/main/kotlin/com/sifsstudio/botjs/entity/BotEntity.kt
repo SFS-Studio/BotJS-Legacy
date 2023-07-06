@@ -99,7 +99,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
     }
 
     override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && environment.controller.runState.free) {
+        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && environment.controller.runState.get().free) {
             if (!this.level.isClientSide) {
                 pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
                     BotMountMenu(
@@ -110,7 +110,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
                 }, Component.translatable("${BotJS.ID}.menu.bot_mount_title")))
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
-        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && environment.controller.runState.free) {
+        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && environment.controller.runState.get().free) {
             if (!this.level.isClientSide) {
                 NetworkManager.INSTANCE.send(
                     PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
@@ -120,7 +120,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
             return InteractionResult.sidedSuccess(this.level.isClientSide)
         } else if (pPlayer.getItemInHand(pHand) isItem Items.SWITCH) {
             if (!this.level.isClientSide) {
-                if (environment.controller.runState.free) {
+                if (environment.controller.runState.get().free) {
                     environment.controller.clearUpgrades()
                     for (i in 0 until inventory.containerSize) {
                         val itemStack = inventory.getItem(i)

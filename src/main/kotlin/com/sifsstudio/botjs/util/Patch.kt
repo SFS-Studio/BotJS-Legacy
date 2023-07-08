@@ -74,3 +74,5 @@ val BlockPos.chunkIn get() = ChunkPos(this)
 inline val Boolean.reversed get() = not()
 
 inline fun Boolean.ifRun(block: () -> Unit) = this.also { if(it)block() }
+
+inline operator fun Runnable.invoke() = this.run()

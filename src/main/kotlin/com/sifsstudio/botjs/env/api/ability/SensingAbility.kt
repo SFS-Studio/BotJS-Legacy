@@ -11,6 +11,7 @@ import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.AABB
 import org.mozilla.javascript.Function
 
+//FIXME: Serialization does not work due to context-specific js function invocation
 class SensingAbility internal constructor(environment: BotEnv) : AbilityBase(environment) {
     override val id = "sensing"
 

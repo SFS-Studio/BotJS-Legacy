@@ -204,14 +204,15 @@ class BotEnv(val entity: BotEntity) {
 
         fun terminateExecution() {
             var cur = runState.get()
+            val stateToIgnore = arrayOf(EnvState.READY, EnvState.UNLOADING)
             while (true) {
-                if (cur == EnvState.READY) {
+                if (cur in stateToIgnore) {
                     return
                 }
                 val witness = runState.compareAndExchangeAcquire(cur, EnvState.TERMINATING)
                 if (witness == cur) {
                     // done
-                    check(witness != EnvState.READY)
+                    check(witness !in stateToIgnore)
                     if (witness == EnvState.TERMINATING) {
                         return
                     }
@@ -220,7 +221,7 @@ class BotEnv(val entity: BotEntity) {
                     runJob?.cancel()
                     break
                 } else {
-                    cur = witness;
+                    cur = witness
                 }
             }
 //            check(runState != EnvState.READY)
@@ -376,7 +377,7 @@ class BotEnv(val entity: BotEntity) {
         private lateinit var BOT_SCOPE: CoroutineScope
 
         init {
-            //FIXME: Another mod using Rhino might broke
+            //FIXME: Another mod using Rhino might break
             ContextFactory.initGlobal(CTX_FACTORY)
         }
 
@@ -384,7 +385,7 @@ class BotEnv(val entity: BotEntity) {
             BOT_DISPATCHER = Executors.newCachedThreadPool {
                 Thread(it, "BotJS-BotThread-${BOT_THREAD_ID.getAndIncrement()}")
             }.asCoroutineDispatcher()
-            BOT_SCOPE = CoroutineScope(SupervisorJob())
+            BOT_SCOPE = CoroutineScope(SupervisorJob() + BOT_DISPATCHER!!)
         }
 
         fun onServerStop(@Suppress("UNUSED_PARAMETER") event: ServerStoppedEvent) {

@@ -9,7 +9,7 @@ import java.io.OutputStream
 class EnvInputStream(internal val env: BotEnv, input: InputStream, scope: ScriptableObject) :
     ScriptableInputStream(input, scope)
 
-class EnvOutputStream(internal val env: BotEnv, output: OutputStream, scope: ScriptableObject)
-    : ScriptableOutputStream(output, scope) {
+class EnvOutputStream(internal val env: BotEnv, output: OutputStream, scope: ScriptableObject) :
+    ScriptableOutputStream(output, scope) {
     var simpleFuture = false
 }

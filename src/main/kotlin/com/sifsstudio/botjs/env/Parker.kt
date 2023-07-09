@@ -24,11 +24,10 @@ class Parker {
     private var operatedResult = AtomicInteger(0)
 
     suspend fun park() {
-
         try {
             suspendCancellableCoroutine {
                 continuation = it
-                val result = operatedResult.compareAndExchangeRelease(0, 1);
+                val result = operatedResult.compareAndExchangeRelease(0, 1)
                 if (result == 2) {
                     it.resume()
                 } else if (result == 3) {
@@ -41,9 +40,8 @@ class Parker {
         }
     }
 
-
     fun unpark() {
-        val result = operatedResult.compareAndExchangeAcquire(0, 2);
+        val result = operatedResult.compareAndExchangeAcquire(0, 2)
         if (result == 1) {
             check(continuation != null) { "MUST NOT BE NULL" }
             continuation!!.resume()
@@ -51,7 +49,7 @@ class Parker {
     }
 
     fun interrupt() {
-        val result = operatedResult.compareAndExchangeAcquire(0, 3);
+        val result = operatedResult.compareAndExchangeAcquire(0, 3)
         if (result == 1) {
             check(continuation != null) { "MUST NOT BE NULL" }
             continuation!!.cancel()

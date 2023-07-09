@@ -18,21 +18,21 @@ import java.util.*
 import java.util.concurrent.CompletionException
 import kotlin.jvm.optionals.getOrNull
 
-class BotDataStorage(root: Path): Closeable {
+class BotDataStorage(root: Path) : Closeable {
     private val worker = IOWorker(root, false, "BotJS-BotData")
     private var active = true
     private fun readChunk(posIn: ChunkPos): Optional<CompoundTag> {
         return worker.loadAsync(posIn)
             .handle { tag, ex ->
-                if(ex != null) {
-                    throw if(ex is CompletionException)ex.cause!! else ex
+                if (ex != null) {
+                    throw if (ex is CompletionException) ex.cause!! else ex
                 }
                 tag
             }.join()
     }
 
     private fun writeChunk(posIn: ChunkPos, data: CompoundTag) {
-        if(data.isEmpty) {
+        if (data.isEmpty) {
             return
         }
         worker.store(posIn, data)
@@ -66,7 +66,7 @@ class BotDataStorage(root: Path): Closeable {
         suspend fun readData(entity: BotEntity): BotSavedData? {
             val chunkPos = entity.chunkPosition()
             ThreadLoop.Sync.waitUntil(true) {
-                if(!chunkSet.contains(chunkPos)) {
+                if (!chunkSet.contains(chunkPos)) {
                     chunkSet.add(chunkPos)
                     false
                 } else true
@@ -80,7 +80,7 @@ class BotDataStorage(root: Path): Closeable {
                 .getOrNull()
         }
 
-        suspend fun writeData(entity: BotEntity, tag:CompoundTag) {
+        suspend fun writeData(entity: BotEntity, tag: CompoundTag) {
             val key = entity.stringUUID
             val storage = perDimStorage[entity.getLevel().dimension()]!!
             val chunkPos = entity.chunkPosition()
@@ -91,6 +91,7 @@ class BotDataStorage(root: Path): Closeable {
                 chunkSet.remove(chunkPos)
             }
         }
+
         fun refresh() {
             perDimStorage.values.forEach { it.worker.synchronize(true).join() }
         }

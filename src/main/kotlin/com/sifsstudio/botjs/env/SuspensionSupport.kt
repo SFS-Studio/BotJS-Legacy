@@ -9,11 +9,11 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
 typealias SuspendBlock<T> = suspend (SuspensionContext) -> T
-typealias SuspendContextBlock = SuspensionContext.(Context) -> Unit
+typealias SuspendContextBlock = SuspensionContext.(BotEnv.EnvContext) -> Unit
 
 class Suspension : RuntimeException()
 
-inline fun SuspensionContext.useWithContext(ctx: Context, block: SuspendContextBlock) {
+inline fun SuspensionContext.useWithContext(ctx: BotEnv.EnvContext, block: SuspendContextBlock) {
     use { c ->
         with(c) {
             ctx.use {
@@ -90,7 +90,7 @@ class SuspensionContext : Closeable {
             throw Context.getCurrentContext().captureContinuation()
         }
 
-        suspend inline fun<T> withContext(sc: SuspensionContext, block: () -> T) = sc.withContext(block)
+        suspend inline fun <T> withContext(sc: SuspensionContext, block: () -> T) = sc.withContext(block)
     }
 
     var breakpoint: SuspendBlock<Any>? = null
@@ -104,7 +104,7 @@ class SuspensionContext : Closeable {
     }
 
     @Suppress("RedundantSuspendModifier")
-    suspend inline fun<T> withContext(block: () -> T): T {
+    suspend inline fun <T> withContext(block: () -> T): T {
         try {
             suspensionContext = this
             return block()

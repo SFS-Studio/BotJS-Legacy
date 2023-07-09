@@ -78,7 +78,7 @@ class BotEnv(val entity: BotEntity) {
                     val aS = pending.applicationState
                     check(aS == null || aS is TaskFuture<*>)
                     scope.discardRuntime() // Depends on the bot entity
-                    serializedFrame = getSerializedFrame(context, pending.continuation, aS as TaskFuture<*>?)
+                    serializedFrame = getSerializedFrame(pending.continuation, aS as TaskFuture<*>?)
                     if (ThreadLoop.Main.await(true) { controller.loaded }) {
                         continue
                     } else return@sc
@@ -140,9 +140,10 @@ class BotEnv(val entity: BotEntity) {
     }
 
     //Serialization operation
-    private fun getSerializedFrame(context: Context, continuation: Any, result: TaskFuture<*>?): String {
+    private fun getSerializedFrame(continuation: Any, result: TaskFuture<*>?): String {
         val baos = ByteArrayOutputStream()
-        val sos = EnvOutputStream(this, baos, context.initStandardObjects())
+        val sos = EnvOutputStream(this, baos, scope)
+        sos.removeExcludedName("")
         sos.writeObject(continuation)
         sos.writeObject(scope)
         sos.writeObject(cacheScope)
@@ -182,7 +183,7 @@ class BotEnv(val entity: BotEntity) {
                 with(context.environment) {
                     check(serializedFrame.isNotEmpty())
                     val bais = ByteArrayInputStream(Base64.decodeBase64(serializedFrame))
-                    val sis = EnvInputStream(this, bais, context.initStandardObjects().apply { initRuntime() })
+                    val sis = EnvInputStream(this, bais, context.initStandardObjects())
                     val continuation = sis.readObject()
                     scope = sis.readObject() as ScriptableObject
                     scope.initRuntime()

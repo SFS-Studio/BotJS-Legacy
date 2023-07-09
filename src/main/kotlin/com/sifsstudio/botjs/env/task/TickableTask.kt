@@ -62,7 +62,7 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     @Throws(IOException::class)
     private fun writeObject(stream: ObjectOutputStream) {
         check(stream is EnvOutputStream)
-        if(stream.simpleFuture) {
+        if (stream.simpleFuture) {
             stream.writeBoolean(true)
             return
         }
@@ -84,7 +84,7 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     @Throws(IOException::class, ClassNotFoundException::class)
     private fun readObject(stream: ObjectInputStream) {
         check(stream is EnvInputStream)
-        if(stream.readBoolean()) {
+        if (stream.readBoolean()) {
             return
         }
         isDone = stream.readBoolean()
@@ -99,7 +99,8 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     }
 
     @Throws(ObjectStreamException::class)
-    private fun readObjectNoData() {}
+    private fun readObjectNoData() {
+    }
 
     internal suspend fun join(it: Parker) {
         if (isDone) {

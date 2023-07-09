@@ -4,7 +4,8 @@
   "package": "com.sifsstudio.botjs.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "ContextMixin"
+    "ContextMixin",
+    "ScriptableOutputStreamMixin"
   ],
   "client": [
   ],

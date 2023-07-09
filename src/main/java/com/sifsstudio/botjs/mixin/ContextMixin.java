@@ -10,23 +10,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Cooperate with {@link SuspensionSupportKt#getSuspensionContext()} to
- * redirect {@link Context#getCurrentContext()} and Context.getContext()
+ * redirect {@link Context#getCurrentContext()} and {@link Context#getContext()}
  * for coroutine-related Context acquirement
  */
 @Mixin(Context.class)
 public class ContextMixin {
 
     /**
-     * As {@link Context#getCurrentContext()} actually invokes getContext(),
-     * we simply patch getContext.
+     * As {@link Context#getContext()} actually invokes {@link Context#getCurrentContext()},
+     * we simply patch {@link Context#getCurrentContext()}.
      */
     @Inject(
             id = "botjs.Context.inject",
-            method = "getContext",
+            method = "getCurrentContext",
             at = @At("TAIL"),
             cancellable = true
     )
-    private static void inject$getContext(CallbackInfoReturnable<Context> info) {
+    private static void inject$getCurrentContext(CallbackInfoReturnable<Context> info) {
         //If there is a Context present, in our conditions:
         //1. It is not inside a suspendable context. In that case, we return
         //the context.

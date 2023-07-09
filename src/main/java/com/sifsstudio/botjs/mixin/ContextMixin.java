@@ -56,11 +56,11 @@ public class ContextMixin {
         //Of the three methods, the first one is the most elegant but complicated.
         //The second one is easy to design and easy to use.
         //The third one, in my opinion, is actually nothing.
-        if(info.getReturnValue() != null) {
+        if (info.getReturnValue() != null) {
             return;
         }
         SuspensionContext sc = SuspensionSupportKt.getSuspensionContext();
-        if(sc != null) {
+        if (sc != null) {
             info.setReturnValue(sc.getContext());
         }
     }

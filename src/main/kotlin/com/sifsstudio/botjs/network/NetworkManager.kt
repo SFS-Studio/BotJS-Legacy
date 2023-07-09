@@ -33,6 +33,12 @@ object NetworkManager {
             ClientboundOpenProgrammerScreenPacket::decode,
             ClientboundOpenProgrammerScreenPacket::handle
         )
+        registerPacket(
+            ClientboundBotParticlePacket::class,
+            ClientboundBotParticlePacket::encode,
+            ClientboundBotParticlePacket::decode,
+            ClientboundBotParticlePacket::handle
+        )
     }
 
     private fun <MSG : Any> registerPacket(

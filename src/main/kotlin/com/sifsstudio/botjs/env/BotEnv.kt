@@ -12,11 +12,15 @@ import com.sifsstudio.botjs.env.storage.BotSavedData
 import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.task.TaskHandler
 import com.sifsstudio.botjs.env.task.TickableTask
+import com.sifsstudio.botjs.network.ClientboundBotParticlePacket
+import com.sifsstudio.botjs.network.NetworkManager
 import com.sifsstudio.botjs.util.ThreadLoop
+import com.sifsstudio.botjs.util.pow
 import kotlinx.coroutines.*
-import net.minecraft.core.particles.ParticleTypes
 import net.minecraftforge.event.server.ServerAboutToStartEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
+import net.minecraftforge.network.PacketDistributor
+import net.minecraftforge.network.PacketDistributor.TargetPoint
 import org.apache.commons.codec.binary.Base64
 import org.mozilla.javascript.*
 import java.io.ByteArrayInputStream
@@ -60,16 +64,15 @@ class BotEnv(val entity: BotEntity) {
     }
 
     private suspend fun run() {
-        // fixme: particle not generated
         suspendableContext sc@{ context ->
             context.optimizationLevel = -1
             chars.values.forEach { it.onActive(this@BotEnv) }
             while (true) {
                 try {
                     if (serializedFrame.isEmpty()) {
-                        LaunchMode.launchClean(context as EnvContext, this)
+                        LaunchMode.launchClean(context, this)
                     } else {
-                        LaunchMode.launchResume(context as EnvContext, this)
+                        LaunchMode.launchResume(context, this)
                     }
                 } catch (pending: ContinuationPending) {
                     val aS = pending.applicationState
@@ -81,9 +84,13 @@ class BotEnv(val entity: BotEntity) {
                     } else return@sc
                 } catch (exception: Exception) {
                     if (exception is WrappedException && exception.wrappedException is CancellationException || exception is CancellationException) {
-                        entity.genErrParticle(ParticleTypes.CRIT)
+                        NetworkManager.INSTANCE.send(PacketDistributor.NEAR.with {
+                            TargetPoint(entity.x, entity.y, entity.z, 32.0 pow 2, entity.level.dimension())
+                        }, ClientboundBotParticlePacket(entity, ClientboundBotParticlePacket.CANCEL))
                     } else if (exception is WrappedException && exception.wrappedException is TimeoutException || exception is TimeoutException) {
-                        entity.genErrParticle(ParticleTypes.SMOKE)
+                        NetworkManager.INSTANCE.send(PacketDistributor.NEAR.with {
+                            TargetPoint(entity.x, entity.y, entity.z, 32.0 pow 2, entity.level.dimension())
+                        }, ClientboundBotParticlePacket(entity, ClientboundBotParticlePacket.TIMEOUT))
                     } else {
                         exception.printStackTrace()
                     }

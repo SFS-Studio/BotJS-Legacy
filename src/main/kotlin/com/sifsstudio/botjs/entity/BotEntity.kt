@@ -138,22 +138,20 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         return super.mobInteract(pPlayer, pHand)
     }
 
-    fun genErrParticle(type: SimpleParticleType) {
-        level.server?.submitAsync {
-            for (i in 0..10) {
-                val vx = random.nextGaussian() * 0.02
-                val vy = random.nextGaussian() * 0.02
-                val vz = random.nextGaussian() * 0.02
-                level.addParticle(
-                    type,
-                    getRandomX(1.0),
-                    randomY + 1.0,
-                    getRandomZ(1.0),
-                    vx,
-                    vy,
-                    vz
-                )
-            }
+    fun genIndicateParticle(type: SimpleParticleType) {
+        for (i in 0..10) {
+            val vx = random.nextGaussian() * 0.02
+            val vy = random.nextGaussian() * 0.02
+            val vz = random.nextGaussian() * 0.02
+            level.addParticle(
+                type,
+                getRandomX(1.0),
+                randomY + 1.0,
+                getRandomZ(1.0),
+                vx,
+                vy,
+                vz
+            )
         }
     }
 }

@@ -1,8 +1,9 @@
-package com.sifsstudio.botjs.env.storage
+package com.sifsstudio.botjs.env.save
 
 import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.util.ThreadLoop
 import com.sifsstudio.botjs.util.set
+import com.sifsstudio.botjs.util.waitUntil
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.level.ChunkPos
@@ -48,14 +49,15 @@ class BotDataStorage(root: Path) : Closeable {
     @Suppress("MemberVisibilityCanBePrivate")
     companion object {
         const val BOT_DATA = "botjs_memory"
-        val perDimStorage: MutableMap<ResourceKey<Level>, BotDataStorage> = mutableMapOf()
-        val chunkSet = mutableSetOf<ChunkPos>()
+        val perDimStorage = mutableMapOf<ResourceKey<Level>, BotDataStorage>()
+        val perDimChunkSet = mutableMapOf<ResourceKey<Level>, MutableSet<ChunkPos>>()
         fun onServerStarted(event: ServerStartedEvent) {
             val server = event.server
             val lvlR = server.getWorldPath(LevelResource.ROOT)
             server.levelKeys().forEach {
                 val f = DimensionType.getStorageFolder(it, lvlR)
                 perDimStorage[it] = BotDataStorage(f.resolve(BOT_DATA))
+                perDimChunkSet[it] = mutableSetOf()
             }
         }
 
@@ -63,33 +65,40 @@ class BotDataStorage(root: Path) : Closeable {
             perDimStorage.values.forEach { it.close() }
         }
 
-        suspend fun readData(entity: BotEntity): BotSavedData? {
+        private suspend inline fun<T> chunkLock(entity: BotEntity, block: (ChunkPos) -> T):T {
             val chunkPos = entity.chunkPosition()
+            val chunkSet = perDimChunkSet[entity.level.dimension()]!!
+            //lock
             ThreadLoop.Sync.waitUntil(true) {
-                if (!chunkSet.contains(chunkPos)) {
-                    chunkSet.add(chunkPos)
+                if (chunkPos !in chunkSet) {
+                    chunkSet += chunkPos
                     false
                 } else true
             }
+            try {
+                return block(chunkPos)
+            } finally {
+                //Unlock
+                ThreadLoop.Sync.execute { chunkSet -= chunkPos }
+            }
+        }
+
+        suspend fun readData(entity: BotEntity) = chunkLock(entity) {
             val key = entity.stringUUID
-            val storage = perDimStorage[entity.getLevel().dimension()]!!
-            return storage.readChunk(chunkPos)
+            val storage = perDimStorage[entity.level.dimension()]!!
+            storage.readChunk(it)
                 .filter { it.contains(key) }
                 .map { it.getCompound(key) }
                 .map(BotSavedData.Companion::deserialize)
                 .getOrNull()
         }
 
-        suspend fun writeData(entity: BotEntity, tag: CompoundTag) {
+        suspend fun writeData(entity: BotEntity, tag: CompoundTag) = chunkLock(entity) {
             val key = entity.stringUUID
             val storage = perDimStorage[entity.getLevel().dimension()]!!
-            val chunkPos = entity.chunkPosition()
-            val result = storage.readChunk(chunkPos).orElse(CompoundTag())
+            val result = storage.readChunk(it).orElse(CompoundTag())
             result[key] = tag
-            storage.writeChunk(chunkPos, result)
-            ThreadLoop.Sync.await(true) {
-                chunkSet.remove(chunkPos)
-            }
+            storage.writeChunk(it, result)
         }
 
         fun refresh() {

@@ -13,7 +13,7 @@ class TimingAbility internal constructor(environment: BotEnv) : AbilityBase(envi
     @Suppress("unused")
     fun sleep(ticks: Int) {
         if (ticks >= 1) {
-            SuspensionContext.invokeSuspend { block(SleepTask(ticks)) }
+            SuspensionContext.invokeSuspend { it.block(SleepTask(ticks)) }
         }
     }
 }

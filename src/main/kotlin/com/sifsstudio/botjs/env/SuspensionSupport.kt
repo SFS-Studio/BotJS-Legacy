@@ -1,9 +1,8 @@
 package com.sifsstudio.botjs.env
 
-import org.mozilla.javascript.Context
-import org.mozilla.javascript.ContinuationPending
-import org.mozilla.javascript.Script
-import org.mozilla.javascript.ScriptableObject
+import com.sifsstudio.botjs.util.getValue
+import com.sifsstudio.botjs.util.setValue
+import org.mozilla.javascript.*
 import java.io.Closeable
 import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
@@ -23,6 +22,15 @@ inline fun SuspensionContext.useWithContext(ctx: BotEnv.EnvContext, block: Suspe
     }
 }
 
+inline fun SuspensionContext.switchAware(block: () -> Unit) {
+    suspensionContext = null
+    try {
+        block()
+    } finally {
+        suspensionContext = this
+    }
+}
+
 inline fun BotEnv.suspendableContext(
     ctx: Context = Context.enter(),
     block: SuspendContextBlock
@@ -31,49 +39,8 @@ inline fun BotEnv.suspendableContext(
     SuspensionContext().useWithContext(ctx, block)
 }
 
-/*@OptIn(InternalCoroutinesApi::class)
-inline fun interceptExecutor(dispatcher: ExecutorCoroutineDispatcher): ExecutorCoroutineDispatcher {
-    return object: ExecutorCoroutineDispatcher(), Delay {
-        private val delegate = dispatcher
-        override val executor by dispatcher::executor
-
-        private inline fun delay() = delegate as Delay
-
-        override fun close() {
-            dispatcher.close()
-        }
-
-        override fun dispatch(context: CoroutineContext, block: Runnable) {
-            val currentContext = suspensionContext
-            if(currentContext != null) {
-                dispatcher.dispatch(context) {
-                    suspensionContext = currentContext
-                    block()
-                }
-            }
-        }
-
-        override fun scheduleResumeAfterDelay(timeMillis: Long, continuation: CancellableContinuation<Unit>) {
-            TODO("Not yet implemented")
-        }
-    }
-}
-
-fun main() {
-    var cont:Continuation<Unit>? = null
-    CoroutineScope(Executors.newFixedThreadPool(1).asCoroutineDispatcher()).launch {
-        suspendCoroutine {
-            cont = it
-        }
-    }
-    while(cont == null);
-    cont!!.resume()
-}*/
-
 var suspensionContext: SuspensionContext?
-    get() = SuspensionContext.CONTEXT.get()
-    set(it) = SuspensionContext.CONTEXT.set(it)
-
+    by SuspensionContext.CONTEXT
 
 class SuspensionContext : Closeable {
     companion object {
@@ -83,11 +50,11 @@ class SuspensionContext : Closeable {
          * Cause the current Context to suspend and notify the underlying
          * SuspensionContext object to handle the suspend function call
          */
-        fun <T : Any> invokeSuspend(block: SuspendBlock<T>): T {
-            val ctx = CONTEXT.get()
+        fun <T : Any> invokeSuspend(block: SuspendBlock<T>): Nothing {
+            val ctx = suspensionContext
             check(ctx != null) { "There is no SuspensionContext bound to current thread" }
             ctx.breakpoint = block
-            throw Context.getCurrentContext().captureContinuation()
+            throw ctx.context!!.captureContinuation()
         }
 
         suspend inline fun <T> withContext(sc: SuspensionContext, block: () -> T) = sc.withContext(block)
@@ -98,8 +65,11 @@ class SuspensionContext : Closeable {
     var context: Context? = null
         private set
 
+    var currentContinuation: NativeContinuation? = null
+        private set
+
     init {
-        check(CONTEXT.get() == null) { "There is already a com.sifsstudio.botjs.env.SuspensionContext bound to current thread" }
+        check(suspensionContext == null) { "There is already a SuspensionContext bound to current thread" }
         CONTEXT.set(this)
     }
 
@@ -114,9 +84,9 @@ class SuspensionContext : Closeable {
     }
 
     suspend fun Context.runScriptSuspend(script: Script, scope: ScriptableObject): Any? {
-        suspensionContext = this@SuspensionContext
         return try {
             context = this
+            suspensionContext = this@SuspensionContext
             executeScriptWithContinuations(script, scope)
         } catch (suspend: ContinuationPending) {
             suspensionContext = null
@@ -164,6 +134,11 @@ class SuspensionContext : Closeable {
             }
         }
     }
+
+    fun createPending(ret: Any?): ContinuationPending =
+        object: ContinuationPending(currentContinuation) {
+            init { applicationState = ret }
+        }
 
     override fun close() {
         CONTEXT.set(null)

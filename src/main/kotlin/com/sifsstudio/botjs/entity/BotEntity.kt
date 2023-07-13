@@ -2,6 +2,7 @@ package com.sifsstudio.botjs.entity
 
 import com.sifsstudio.botjs.BotJS
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.BotEnvGlobal
 import com.sifsstudio.botjs.inventory.BotMountMenu
 import com.sifsstudio.botjs.item.Items
 import com.sifsstudio.botjs.item.UpgradeItem
@@ -27,7 +28,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.network.PacketDistributor
-import java.util.*
 
 class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
 
@@ -38,8 +38,7 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
     }
 
     private val inventory: SimpleContainer = SimpleContainer(9)
-    val environment = BotEnv(this)
-    var uid = UUID.randomUUID()
+    lateinit var environment: BotEnv
 
     override fun getArmorSlots() = emptyList<ItemStack>()
 
@@ -61,15 +60,14 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
         super.readAdditionalSaveData(pCompound)
+        environment = BotEnvGlobal.load(this)
         inventory.removeAllItems()
         inventory.fromTag(pCompound.getList("upgrades", Tag.TAG_COMPOUND))
         environment.controller.script = pCompound.getString("script")
-        environment.controller.resume = pCompound.getBoolean("resume")
     }
 
     override fun onAddedToWorld() {
         super.onAddedToWorld()
-        println(uid)
         if (!this.level.isClientSide) {
             if (environment.controller.resume) {
                 environment.controller.clearUpgrades()

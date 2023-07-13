@@ -1,4 +1,4 @@
-package com.sifsstudio.botjs.env
+package com.sifsstudio.botjs.env.task
 
 import com.sifsstudio.botjs.util.resume
 import kotlinx.coroutines.CancellableContinuation

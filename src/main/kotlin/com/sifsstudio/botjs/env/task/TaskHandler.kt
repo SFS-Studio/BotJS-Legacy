@@ -1,7 +1,8 @@
 package com.sifsstudio.botjs.env.task
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.Parker
+import com.sifsstudio.botjs.env.SuspensionContext
+import com.sifsstudio.botjs.env.switchAware
 import com.sifsstudio.botjs.util.getList
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -73,6 +74,10 @@ class TaskHandler(private val env: BotEnv) {
         }
     }
 
+    fun resumeExecution() {
+        suspended.set(false)
+    }
+
     private fun <T : Any> findTask(future: TaskFuture<T>): TaskHandle<T>? {
         val pT = pendingTask
         return if (pT != null && pT.future == future) {
@@ -97,7 +102,7 @@ class TaskHandler(private val env: BotEnv) {
         return future
     }
 
-    suspend fun <T : Any> block(future: TaskFuture<T>) {
+    suspend fun <T : Any> block(future: TaskFuture<T>, cx: SuspensionContext) {
         synchronized(this) {
             tickingTasks.iterator().run {
                 while (hasNext()) {
@@ -111,7 +116,9 @@ class TaskHandler(private val env: BotEnv) {
             }
         }
         if (!suspended.get()) {
-            future.join(parker)
+            cx.switchAware {
+                future.join(parker)
+            }
         }
     }
 

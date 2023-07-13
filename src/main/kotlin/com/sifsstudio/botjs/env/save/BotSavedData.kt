@@ -1,9 +1,9 @@
-package com.sifsstudio.botjs.env.storage
+package com.sifsstudio.botjs.env.save
 
 import com.sifsstudio.botjs.util.set
 import net.minecraft.nbt.CompoundTag
 
-data class BotSavedData(val frame: String, val tasks: CompoundTag) {
+class BotSavedData(var frame: String, var tasks: CompoundTag) {
     companion object {
         fun deserialize(tag: CompoundTag): BotSavedData {
             val fr = tag.getByteArray("frame")
@@ -17,5 +17,11 @@ data class BotSavedData(val frame: String, val tasks: CompoundTag) {
             tag["tasks"] = data.tasks
             return tag
         }
+        fun createEmpty() = BotSavedData("", CompoundTag())
+    }
+
+    fun clear() {
+        frame = ""
+        tasks.allKeys.forEach {tasks.remove(it)}
     }
 }

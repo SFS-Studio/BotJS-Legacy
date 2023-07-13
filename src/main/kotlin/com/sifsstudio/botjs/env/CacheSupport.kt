@@ -1,11 +1,9 @@
 package com.sifsstudio.botjs.env
 
-import org.mozilla.javascript.Context
-import org.mozilla.javascript.Function
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
 import java.util.*
-
+//TODO: Cache restoration in proper context
 fun BotEnv.addCache(value: Scriptable) = synchronized(this) {
     var uid: String
     do {
@@ -22,6 +20,3 @@ fun BotEnv.getCache(key: String) = synchronized(this) {
         cacheScope.delete(key)
     }
 }
-
-inline fun <reified T : kotlin.Function<*>> wrapJsFunction(function: Function): T =
-    Context.jsToJava(function, T::class.java) as T

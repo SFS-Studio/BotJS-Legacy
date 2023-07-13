@@ -1,5 +1,6 @@
-package com.sifsstudio.botjs.env
+package com.sifsstudio.botjs.env.save
 
+import com.sifsstudio.botjs.env.BotEnv
 import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.serialize.ScriptableInputStream
 import org.mozilla.javascript.serialize.ScriptableOutputStream

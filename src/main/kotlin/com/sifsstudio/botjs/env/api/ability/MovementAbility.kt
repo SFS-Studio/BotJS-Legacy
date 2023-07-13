@@ -18,8 +18,8 @@ class MovementAbility internal constructor(environment: BotEnv) : AbilityBase(en
         submit(DestinationMovementTask(x, y, z, environment))
 
     @Suppress("unused")
-    fun lookAt(x: Double, y: Double, z: Double) = SuspensionContext.invokeSuspend {
-        block(LookAtTask(x, y, z, environment))
+    fun lookAt(x: Double, y: Double, z: Double): Unit = SuspensionContext.invokeSuspend {
+        it.block(LookAtTask(x, y, z, environment))
     }
 }
 

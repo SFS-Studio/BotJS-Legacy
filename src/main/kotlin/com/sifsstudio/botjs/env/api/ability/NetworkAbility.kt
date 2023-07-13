@@ -12,7 +12,7 @@ class NetworkAbility internal constructor(environment: BotEnv) : AbilityBase(env
 
     override val id = "network"
 
-    private val property = environment[EnvCharacteristic.CONNECTION]!!
+    private val property = environment.controller[EnvCharacteristic.CONNECTION]
 
     fun scan() =
         mutableSetOf<Remote>().apply {

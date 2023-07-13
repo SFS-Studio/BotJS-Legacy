@@ -1,9 +1,8 @@
 package com.sifsstudio.botjs.env.task
 
 import com.sifsstudio.botjs.env.BotEnv
-import com.sifsstudio.botjs.env.EnvInputStream
-import com.sifsstudio.botjs.env.EnvOutputStream
-import com.sifsstudio.botjs.env.Parker
+import com.sifsstudio.botjs.env.save.EnvInputStream
+import com.sifsstudio.botjs.env.save.EnvOutputStream
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import java.io.IOException
@@ -62,11 +61,10 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     @Throws(IOException::class)
     private fun writeObject(stream: ObjectOutputStream) {
         check(stream is EnvOutputStream)
+        stream.writeBoolean(stream.simpleFuture)
         if (stream.simpleFuture) {
-            stream.writeBoolean(true)
             return
         }
-        stream.writeBoolean(false)
         val ordinal = stream.env.taskHandler.ordinal(this)
         if (ordinal == -1) {
             check(isDone)

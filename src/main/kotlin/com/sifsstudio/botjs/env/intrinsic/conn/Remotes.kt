@@ -11,7 +11,7 @@ import java.util.*
 class RemoteEnv(uid: UUID, descriptors: Map<String, String>, internal val environment: BotEnv) :
     Remote(uid, descriptors) {
     override val position: Position get() = environment.entity.position()
-    override val radius get() = environment[EnvCharacteristic.CONNECTION]!!.range
+    override val radius get() = environment.controller[EnvCharacteristic.CONNECTION]!!.range
 }
 
 class RemoteController(uid: UUID, descriptors: Map<String, String>, internal val entity: WAPBlockEntity) :

@@ -43,7 +43,7 @@ object Items {
             by REGISTRY.registerObject("connection_upgrade") {
                 UpgradeItem.applies {
                     it.controller.install(::NetworkAbility)
-                    it[EnvCharacteristic.CONNECTION] =
+                    it.controller[EnvCharacteristic.CONNECTION] =
                         ConnectionProperties(128.0, mutableMapOf())
                 }
             }

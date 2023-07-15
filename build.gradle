@@ -1,9 +1,16 @@
+buildscript {
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7.+'
+    }
+}
+
 plugins {
     id 'net.minecraftforge.gradle' version '5.1.+'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
     id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'org.spongepowered.mixin' version '0.7.+'
 }
+
+apply plugin: 'org.spongepowered.mixin'
 
 version = '1.0-SNAPSHOT'
 group = 'com.sifsstudio'
@@ -93,6 +100,11 @@ repositories {
         url = 'https://thedarkcolour.github.io/KotlinForForge/'
     }
     mavenCentral()
+    maven {
+        name = 'Sponge / Mixin'
+        url = 'https://repo.spongepowered.org/repository/maven-public/'
+    }
+
 }
 
 configurations {
@@ -103,7 +115,7 @@ configurations {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.19.4-45.1.0'
 
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+//    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
     implementation 'thedarkcolour:kotlinforforge:4.3.0'
     copyImplementation 'org.mozilla:rhino:1.7.14'

@@ -153,7 +153,7 @@ class BotEnv {
         abstract fun install(ability: AbilityBase)
         inline fun install(ability: (BotEnv) -> AbilityBase) = install(ability(this@BotEnv))
         abstract fun chars(): Set<EnvCharacteristic.Key<*>>
-        abstract operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>): T
+        abstract operator fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>): T?
         abstract operator fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T?)
     }
 

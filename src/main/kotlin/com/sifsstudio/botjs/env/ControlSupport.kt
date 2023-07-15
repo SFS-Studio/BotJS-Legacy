@@ -174,7 +174,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
     override fun chars() = chars.keys
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = chars[key] as T
+    override fun <T : EnvCharacteristic> get(key: EnvCharacteristic.Key<T>) = chars[key] as? T
 
     override fun <T : EnvCharacteristic> set(key: EnvCharacteristic.Key<T>, char: T?) {
         if (char == null) {

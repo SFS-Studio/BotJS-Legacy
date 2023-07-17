@@ -74,6 +74,10 @@ class TaskHandler(private val env: BotEnv) {
         }
     }
 
+    fun pause() {
+        suspended.set(false)
+    }
+
     fun resumeExecution() {
         suspended.set(false)
     }

@@ -45,6 +45,8 @@ object BotJS {
         val executionTimeout by DurationDelegate(builder.define("js_timeout", "5s"))
 
         var saveDurationTicks: Int by builder.defineInRange("save_duration_ticks", 30*60*20, 60*20, Integer.MAX_VALUE).delegate()
+
+        var maxMainEventMillis: Int by builder.defineInRange("max_server_event_millis", 20, 0, Integer.MAX_VALUE).delegate()
     }
 
     init {

@@ -4,8 +4,8 @@ import com.sifsstudio.botjs.env.BotEnvGlobal.BOT_SCOPE
 import com.sifsstudio.botjs.env.BotEnvState.*
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
+import com.sifsstudio.botjs.env.save.BotDataContainer
 import com.sifsstudio.botjs.env.save.BotDataStorage
-import com.sifsstudio.botjs.env.save.BotSavedData
 import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.util.ThreadLoop
 import kotlinx.coroutines.CancellableContinuation
@@ -68,47 +68,34 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
         }
     }
 
-    private fun relaunch(): Boolean {
-        if (runState.get() != READY) {
-            return false
-        }
-        launch()
-        return true
-    }
-
-    private fun awaitLaunch(): Boolean {
-        val job = readJob ?: return false
-        return if(job.isActive) {
-            false
-        } else if(runJob == null){
+    private fun checkRelaunch() {
+        if(data != BotDataContainer.EMPTY) {
             launch()
-            true
-        } else false
+        }
     }
 
     override fun add() {
         loaded = true
-        val job = readJob
-        if(job == null || job.isActive) {
-            ThreadLoop.Main.schedule(::awaitLaunch)
+        var read = readJob
+        if(read == null) {
+            read = scheduleRead()
+            readJob = read
+        }
+        if(read.isActive) {
+            check(runJob == null)
+            read.invokeOnCompletion { ThreadLoop.Main.execute(::checkRelaunch) }
         } else {
-            if (runJob != null) {
-                safepointEvents -= SafepointEvent.UNLOAD
-                when (runState.get()) {
-                    UNLOADING -> {
-                        if (reloadHandle == null) {
-                            reloadHandle = ThreadLoop.Main.schedule(::relaunch)
-                        }
+            val run = runJob
+            if (run != null && run.isActive) {
+                safepointEvents -= SafepointEvent.Unload
+                val handle = run.invokeOnCompletion {
+                    if(it == null) {
+                        ThreadLoop.Main.execute(::checkRelaunch)
                     }
-
-                    SAFEPOINT -> {
-                        if (resume) {
-                            launch()
-                        }
-                    }
-
-                    else -> {}
                 }
+                safepointEvents += SafepointEvent.Execute { handle.dispose() }
+            } else {
+                checkRelaunch()
             }
         }
     }
@@ -117,7 +104,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
         loaded = false
 
         if (runState.get() in arrayOf(RUNNING, SAFEPOINT)) {
-            safepointEvents += SafepointEvent.UNLOAD
+            safepointEvents += SafepointEvent.Unload
             taskHandler.suspend(false)
         }
 
@@ -135,8 +122,8 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
         val job = BOT_SCOPE.launch {
             suspendableContext { cx ->
                 val entity = env.entity
-                val data = BotDataStorage.readData(entity)
-                data?.let { deserialize(it, cx) }
+                BotDataStorage.readData(entity)
+                deserialize(cx)
             }
         }
         readJob = job
@@ -146,13 +133,14 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
     override fun scheduleWrite(): Job {
         val job = BOT_SCOPE.launch {
             suspendableContext {
-                data = serialize()
-                BotDataStorage.writeData(entity, BotSavedData.serialize(data))
+                serialize()
+                BotDataStorage.writeData(entity, data.serialize())
             }
         }
         writeJob = job
         return job
     }
+
     override fun clearUpgrades() {
         abilities.clear()
         chars.forEach { (_, v) -> v.onRemovedFromEnv(env) }
@@ -160,10 +148,12 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
     }
 
     override fun onEnable() {
+        safepointEvents.clear()
         chars.forEach { (_, v) -> v.onActive(env) }
     }
 
     override fun onDisable() {
+        safepointEvents.clear()
         chars.forEach { (_, v) -> v.onDeactive(env) }
     }
 

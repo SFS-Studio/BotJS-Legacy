@@ -1,6 +1,5 @@
 package com.sifsstudio.botjs.env
 
-import com.sifsstudio.botjs.env.save.BotSavedData
 import com.sifsstudio.botjs.env.save.EnvInputStream
 import com.sifsstudio.botjs.env.save.EnvOutputStream
 import com.sifsstudio.botjs.env.task.TaskFuture
@@ -48,8 +47,7 @@ fun BotEnv.serialize() = data.apply {
     tasks = taskHandler.serialize()
 }
 
-fun BotEnv.deserialize(data: BotSavedData, cx: Context) {
-    this.data = data
+fun BotEnv.deserialize(cx: Context) {
     if(serializedFrame.isNotEmpty()) {
         readSerializedFrame(serializedFrame, cx)
         taskHandler.deserialize(data.tasks)

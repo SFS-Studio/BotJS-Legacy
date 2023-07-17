@@ -153,3 +153,17 @@ inline fun warn(condition: Boolean, block: () -> String) {
         IllegalStateException(block()).printStackTrace()
     }
 }
+
+inline fun<T: Any> lateObservable(crossinline observer: (prop: KProperty<*>, old: T?, new: T) -> String?)
+= object: ReadWriteProperty<Any?, T> {
+    private var inner: T? = null
+    override fun getValue(thisRef: Any?, property: KProperty<*>)
+        = inner ?: throw UninitializedPropertyAccessException("lateinit property ${property.name} has not been initialized")
+
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        val reason = observer(property, inner, value)
+        if(reason != null)
+            throw IllegalArgumentException("Cannot set property ${property.name} to $value: $reason")
+        inner = value
+    }
+}

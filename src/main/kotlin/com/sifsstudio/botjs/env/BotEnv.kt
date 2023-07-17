@@ -6,11 +6,12 @@ import com.sifsstudio.botjs.entity.BotEntity
 import com.sifsstudio.botjs.env.api.Bot
 import com.sifsstudio.botjs.env.api.ability.AbilityBase
 import com.sifsstudio.botjs.env.intrinsic.EnvCharacteristic
-import com.sifsstudio.botjs.env.save.BotSavedData
+import com.sifsstudio.botjs.env.save.BotDataContainer
 import com.sifsstudio.botjs.env.task.TaskFuture
 import com.sifsstudio.botjs.env.task.TaskHandler
 import com.sifsstudio.botjs.network.ClientboundBotParticlePacket
 import com.sifsstudio.botjs.network.NetworkManager
+import com.sifsstudio.botjs.util.lateObservable
 import com.sifsstudio.botjs.util.pow
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
@@ -30,21 +31,20 @@ class BotEnv {
     lateinit var scope: ScriptableObject
     lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
-    lateinit var entity: BotEntity
-    val uid: UUID by entity::uuid
+    var entity: BotEntity by lateObservable { _, old, new ->
+        if(BotEnvGlobal.ALL_ENV[new.uuid] != this) {
+            "An entity should only has one env"
+        } else null
+    }
+    val uid: UUID
+        get() = entity.uuid
 
-    var data = BotSavedData.createEmpty()
+    var data = BotDataContainer.EMPTY
 
     val controller = createController()
 
     var continuation: Any? = null //NativeContinuation
     var retVal: TaskFuture<*>? = null
-
-    init {
-        if(BotEnvGlobal.ALL_ENV[uid] != null) {
-            throw IllegalStateException("Duplicate environment creation for bot $uid")
-        }
-    }
 
     suspend fun run(sc: SuspensionContext, context: EnvContext): Boolean {
         with(sc) {
@@ -125,7 +125,7 @@ class BotEnv {
 
     //Handle operation from server thread
     //All state read/write across threads shall be executed on the main thread
-    abstract inner class Controller internal constructor() {
+    abstract inner class Controller {
         abstract val resume: Boolean
         abstract var script: String
         // R/W across threads

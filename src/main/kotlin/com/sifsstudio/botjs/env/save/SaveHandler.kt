@@ -14,6 +14,7 @@ import net.minecraftforge.event.TickEvent
 import net.minecraftforge.event.level.LevelEvent
 import net.minecraftforge.event.server.ServerStartedEvent
 import net.minecraftforge.event.server.ServerStoppingEvent
+import net.minecraftforge.fml.LogicalSide
 import java.util.concurrent.CompletableFuture
 
 object SaveHandler {
@@ -35,9 +36,11 @@ object SaveHandler {
         val future = CompletableFuture<Unit>()
         describe(future) {
             globalSafeSuspend {
-                runSafepoint(SafepointEvent.SAVE)
+                runSafepoint(SafepointEvent.Save)
             }
-            BotEnvGlobal.ALL_ENV.values.pick { !it.controller.loaded }.forEach {}
+            BotEnvGlobal.ALL_ENV.values
+                .pick { !it.controller.loaded && it.controller.runState.get() == BotEnvState.READY }
+                .forEach { it.controller.scheduleWrite() }
         }
         return true
     }
@@ -47,7 +50,7 @@ object SaveHandler {
         describe(future) {
             globalSafeSuspend {
                 filterNot { it.entity.level.dimension() == dim }
-                runSafepoint(SafepointEvent.SAVE)
+                runSafepoint(SafepointEvent.Save)
             }
             ThreadLoop.Main.execute {
                 BotEnvGlobal.ALL_ENV.values
@@ -94,7 +97,7 @@ object SaveHandler {
             BotEnvGlobal.ALL_ENV.values.forEach {
                 it.controller.scheduleWrite()
             }
-        }
+        }.join()
     }
 
     fun onStart(e: ServerStartedEvent) {
@@ -115,6 +118,9 @@ object SaveHandler {
     }
 
     fun onTick(e: TickEvent) {
+        if(e.side != LogicalSide.SERVER&& e.type != TickEvent.Type.SERVER) {
+            return
+        }
         if(tick++ > BotJS.CONFIG.saveDurationTicks) {
             tick = 1
             with(ThreadLoop.Sync) {

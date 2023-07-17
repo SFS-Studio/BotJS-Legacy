@@ -7,16 +7,16 @@ import com.sifsstudio.botjs.util.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.yield
 import java.util.*
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.check
 import kotlin.coroutines.cancellation.CancellationException
 
 //TODO: Avoid racing
 val perEnvSafepoint = mutableMapOf<UUID, MutableSet<SafepointEvent>>()
 val perEnvGlobal = mutableMapOf<UUID, MutableSet<SafepointEvent>>()
 
-inline val BotEnv.globalSafepoint get() = perEnvGlobal.computeIfAbsent(uid) { EnumSet.allOf(SafepointEvent::class.java) }
-inline val BotEnv.safepointEvents get() = perEnvSafepoint.computeIfAbsent(uid) { EnumSet.allOf(SafepointEvent::class.java) }
+inline val BotEnv.globalSafepoint get() = perEnvGlobal.computeIfAbsent(uid) { ConcurrentSkipListSet { e1, e2 -> e1.priority - e2.priority } }
+inline val BotEnv.safepointEvents get() = perEnvSafepoint.computeIfAbsent(uid) { ConcurrentSkipListSet { e1, e2 -> e1.priority - e2.priority } }
 
 var globalSafepointScope: SafepointScope? = null
     private set
@@ -29,7 +29,6 @@ suspend inline fun BotEnv.enterSafepointBlock(cx: SuspensionContext) {
         if(uid !in perEnvSafepoint && globalSafepoint.isEmpty()) {
             return
         }
-        safepointEvents.clear()
         when(runState.compareAndExchange(RUNNING, SAFEPOINT)) {
             RUNNING -> enterSafepoint(cx, null)
             else -> {}
@@ -42,10 +41,9 @@ suspend inline fun BotEnv.enterSafepointBlock(cx: SuspensionContext) {
  */
 fun BotEnv.enterSafepointSubmit(ret: TaskFuture<*>) {
     with(controller) {
-        if(uid !in perEnvSafepoint && globalSafepoint.isEmpty()) {
+        if(safepointEvents.isEmpty() && globalSafepoint.isEmpty()) {
             return
         }
-        safepointEvents.clear()
         when(runState.compareAndExchange(RUNNING, SAFEPOINT)) {
             RUNNING -> invokeSuspend {
                 enterSafepoint(it, ret)
@@ -78,7 +76,7 @@ suspend fun BotEnv.enterSafepoint(cx: SuspensionContext, ret: TaskFuture<*>?) {
 private suspend fun BotEnv.processEvent(cx: SuspensionContext, ret: TaskFuture<*>?, e: SafepointEvent) {
     with(controller) {
         when (e) {
-            SafepointEvent.SUSPEND -> cx.switchAware {
+            SafepointEvent.Suspend -> cx.switchAware {
                 try {
                     suspendCancellableCoroutine {
                         safepoint = it
@@ -90,16 +88,20 @@ private suspend fun BotEnv.processEvent(cx: SuspensionContext, ret: TaskFuture<*
                 }
             }
 
-            SafepointEvent.SAVE -> {
-                taskHandler.suspend(false)
+            SafepointEvent.Save -> {
+                taskHandler.pause()
                 dumpContinuation(cx, ret)
                 controller.scheduleWrite().join()
                 taskHandler.resumeExecution()
             }
 
-            SafepointEvent.UNLOAD -> {
+            SafepointEvent.Unload -> {
                 runState.compareAndSet(SAFEPOINT, UNLOADING)
                 throw cx.createPending(ret)
+            }
+
+            is SafepointEvent.Execute -> {
+                e.block()
             }
         }
     }
@@ -112,7 +114,7 @@ private suspend fun BotEnv.processEvent(cx: SuspensionContext, ret: TaskFuture<*
  */
 fun<T> globalSafeSuspend(block: SafepointScope.() -> T): T {
     val set = BotEnvGlobal.ALL_ENV.values
-    return SafepointScope(set).use { it.block() }
+    return SafepointScope(set.toMutableSet()).use { it.block() }
 }
 
 class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
@@ -121,7 +123,7 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
         check(globalSafepointScope == null)
         globalSafepointScope = this
         control.forEach {
-            it.globalSafepoint += SafepointEvent.SUSPEND
+            it.globalSafepoint += SafepointEvent.Suspend
         }
         control.removeIf {
             val state = it.controller.runState
@@ -140,16 +142,16 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
         check(open)
         val count = control.size*2
         for(e in safepoint) {
-            warn(e != SafepointEvent.SUSPEND)
+            warn(e != SafepointEvent.Suspend)
                 { "Running SUSPEND in runSafepoint is of no effect. When no safepoint is running, the are suspended." }
-            if(e == SafepointEvent.UNLOAD) {
+            if(e == SafepointEvent.Unload) {
                 unloadAll()
             }
             control.forEach {
                 with(it) {
                     globalSafepoint.clear()
                     globalSafepoint += e
-                    globalSafepoint += SafepointEvent.SUSPEND
+                    globalSafepoint += SafepointEvent.Suspend
                     controller.safepoint!!.resumeSilent()
                 }
             }
@@ -162,7 +164,7 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
         control.forEach {
             with(it) {
                 globalSafepoint.clear()
-                globalSafepoint += SafepointEvent.UNLOAD
+                globalSafepoint += SafepointEvent.Unload
             }
         }
         control.forEach {
@@ -193,6 +195,7 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
             it.globalSafepoint.clear()
             it.controller.safepoint?.resumeSilent()
         }
+        globalSafepointScope = null
     }
 }
 
@@ -202,8 +205,10 @@ private inline val stateToIgnore get() = arrayOf(READY, SAFEPOINT)
  * Predefined safe point events
  * The order means priority when processed
  */
-enum class SafepointEvent {
-    UNLOAD,
-    SAVE,
-    SUSPEND
+sealed class SafepointEvent(val priority: Int) {
+    object Unload: SafepointEvent(4)
+    object Save: SafepointEvent(3)
+    object Suspend: SafepointEvent(2)
+
+    class Execute(val block: () -> Unit): SafepointEvent(1)
 }

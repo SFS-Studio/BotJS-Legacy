@@ -55,7 +55,6 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
         super.addAdditionalSaveData(pCompound)
         pCompound.put("upgrades", inventory.createTag())
         pCompound.putString("script", environment.controller.script)
-        pCompound.putBoolean("resume", environment.controller.resume)
     }
 
     override fun readAdditionalSaveData(pCompound: CompoundTag) {
@@ -97,8 +96,8 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
     }
 
     override fun mobInteract(pPlayer: Player, pHand: InteractionHand): InteractionResult {
-        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH && environment.controller.runState.get().free) {
-            if (!this.level.isClientSide) {
+        if (pPlayer.getItemInHand(pHand) isItem Items.WRENCH) {
+            if (!this.level.isClientSide && environment.controller.runState.get().free) {
                 pPlayer.openMenu(SimpleMenuProvider({ containerId, playerInventory, _ ->
                     BotMountMenu(
                         containerId,
@@ -108,8 +107,8 @@ class BotEntity(type: EntityType<BotEntity>, level: Level) : Mob(type, level) {
                 }, Component.translatable("${BotJS.ID}.menu.bot_mount_title")))
             }
             return InteractionResult.sidedSuccess(this.level.isClientSide)
-        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER && environment.controller.runState.get().free) {
-            if (!this.level.isClientSide) {
+        } else if (pPlayer.getItemInHand(pHand) isItem Items.PROGRAMMER) {
+            if (!this.level.isClientSide && environment.controller.runState.get().free) {
                 NetworkManager.INSTANCE.send(
                     PacketDistributor.PLAYER.with { pPlayer as ServerPlayer },
                     ClientboundOpenProgrammerScreenPacket(this.id, environment.controller.script)

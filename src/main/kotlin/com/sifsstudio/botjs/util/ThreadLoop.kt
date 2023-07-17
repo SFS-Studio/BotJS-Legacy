@@ -2,6 +2,7 @@
 
 package com.sifsstudio.botjs.util
 
+import com.sifsstudio.botjs.BotJS
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.minecraftforge.event.TickEvent
@@ -14,6 +15,8 @@ import kotlin.concurrent.thread
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlin.time.ExperimentalTime
+import kotlin.time.TimeSource
 
 sealed class ThreadLoop : Executor {
     inner class DisposableHandle(private val value: Any) {
@@ -45,7 +48,9 @@ sealed class ThreadLoop : Executor {
     }
 
     override fun execute(command: Runnable) {
-        schedule {
+        if(inLoop) {
+            command()
+        } else schedule {
             command()
             true
         }
@@ -58,10 +63,20 @@ sealed class ThreadLoop : Executor {
             carrier = event.server.runningThread
         }
 
+        @OptIn(ExperimentalTime::class)
         fun onTick(event: TickEvent) {
+            val start = TimeSource.Monotonic.markNow()
             if (event.phase == TickEvent.Phase.END) {
                 if(tasks.isNotEmpty()) {
-                    tasks.removeIf {it()}
+                    tasks.iterator().run {
+                        var now: () -> Boolean
+                        while(hasNext() && start.elapsedNow().inWholeMilliseconds <= BotJS.CONFIG.maxMainEventMillis) {
+                            now = next()
+                            if(now()) {
+                                remove()
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -71,6 +86,7 @@ sealed class ThreadLoop : Executor {
         }
 
         fun carry(until: () -> Boolean) {
+            while(carrier != null) Thread.onSpinWait()
             carrier = Thread.currentThread()
             while(until()) {
                 while(tasks.isEmpty() && until()) Thread.onSpinWait()
@@ -88,8 +104,8 @@ sealed class ThreadLoop : Executor {
         fun onStart(event: ServerStartingEvent) {
             tasks.clear()
             runner = thread {
-                while (true) {
-                    val tsk = tasks.pollFirst()
+                while (!Thread.interrupted()) {
+                    val tsk = tasks.takeFirst() ?: continue
                     val back = !tsk()
                     if(tasks.isNotEmpty()) {
                         tasks.removeIf { it() }

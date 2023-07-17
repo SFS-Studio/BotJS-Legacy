@@ -62,7 +62,9 @@ class BotDataStorage(root: Path) : Closeable {
         }
 
         fun onServerStopped(@Suppress("UNUSED_PARAMETER") event: ServerStoppedEvent) {
-            perDimStorage.values.forEach { it.close() }
+            perDimStorage.values.forEach {
+                it.close()
+            }
         }
 
         private suspend inline fun<T> chunkLock(entity: BotEntity, block: (ChunkPos) -> T):T {
@@ -89,7 +91,7 @@ class BotDataStorage(root: Path) : Closeable {
             storage.readChunk(it)
                 .filter { it.contains(key) }
                 .map { it.getCompound(key) }
-                .map(BotSavedData.Companion::deserialize)
+                .map(entity.environment.data::deserialize)
                 .getOrNull()
         }
 

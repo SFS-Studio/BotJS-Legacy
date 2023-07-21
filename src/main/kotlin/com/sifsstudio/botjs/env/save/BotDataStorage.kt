@@ -1,6 +1,8 @@
 package com.sifsstudio.botjs.env.save
 
 import com.sifsstudio.botjs.entity.BotEntity
+import com.sifsstudio.botjs.env.SuspensionContext
+import com.sifsstudio.botjs.env.switchAware
 import com.sifsstudio.botjs.util.ThreadLoop
 import com.sifsstudio.botjs.util.set
 import com.sifsstudio.botjs.util.waitUntil
@@ -67,15 +69,17 @@ class BotDataStorage(root: Path) : Closeable {
             }
         }
 
-        private suspend inline fun<T> chunkLock(entity: BotEntity, block: (ChunkPos) -> T):T {
+        private suspend inline fun<T> chunkLock(entity: BotEntity, cx: SuspensionContext, block: (ChunkPos) -> T):T {
             val chunkPos = entity.chunkPosition()
             val chunkSet = perDimChunkSet[entity.level.dimension()]!!
             //lock
-            ThreadLoop.Sync.waitUntil(true) {
-                if (chunkPos !in chunkSet) {
-                    chunkSet += chunkPos
-                    false
-                } else true
+            cx.switchAware {
+                ThreadLoop.Sync.waitUntil(true) {
+                    if (chunkPos !in chunkSet) {
+                        chunkSet += chunkPos
+                        false
+                    } else true
+                }
             }
             try {
                 return block(chunkPos)
@@ -85,7 +89,7 @@ class BotDataStorage(root: Path) : Closeable {
             }
         }
 
-        suspend fun readData(entity: BotEntity) = chunkLock(entity) {
+        suspend fun readData(entity: BotEntity, cx: SuspensionContext) = chunkLock(entity, cx) {
             val key = entity.stringUUID
             val storage = perDimStorage[entity.level.dimension()]!!
             storage.readChunk(it)
@@ -95,7 +99,7 @@ class BotDataStorage(root: Path) : Closeable {
                 .getOrNull()
         }
 
-        suspend fun writeData(entity: BotEntity, tag: CompoundTag) = chunkLock(entity) {
+        suspend fun writeData(entity: BotEntity, tag: CompoundTag, cx: SuspensionContext) = chunkLock(entity, cx) {
             val key = entity.stringUUID
             val storage = perDimStorage[entity.getLevel().dimension()]!!
             val result = storage.readChunk(it).orElse(CompoundTag())

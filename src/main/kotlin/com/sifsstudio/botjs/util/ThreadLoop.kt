@@ -21,7 +21,7 @@ import kotlin.time.TimeSource
 sealed class ThreadLoop : Executor {
     inner class DisposableHandle(private val value: Any) {
         val markers: MutableSet<Any> = mutableSetOf()
-        var onDone: (() -> Unit)? = null
+        private var onDone: (() -> Unit)? = null
         fun dispose() = tasks.remove(value)
         var done: Boolean = false
             set(value) {

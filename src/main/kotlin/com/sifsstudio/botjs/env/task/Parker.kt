@@ -1,5 +1,7 @@
 package com.sifsstudio.botjs.env.task
 
+import com.sifsstudio.botjs.env.SuspensionContext
+import com.sifsstudio.botjs.env.switchAware
 import com.sifsstudio.botjs.util.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,15 +25,17 @@ class Parker {
      */
     private var operatedResult = AtomicInteger(0)
 
-    suspend fun park() {
+    suspend fun park(cx: SuspensionContext) {
         try {
-            suspendCancellableCoroutine {
-                continuation = it
-                val result = operatedResult.compareAndExchangeRelease(0, 1)
-                if (result == 2) {
-                    it.resume()
-                } else if (result == 3) {
-                    it.cancel()
+            cx.switchAware {
+                suspendCancellableCoroutine {
+                    continuation = it
+                    val result = operatedResult.compareAndExchangeRelease(0, 1)
+                    if (result == 2) {
+                        it.resume()
+                    } else if (result == 3) {
+                        it.cancel()
+                    }
                 }
             }
         } finally {

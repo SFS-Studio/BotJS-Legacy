@@ -150,8 +150,12 @@ inline fun<T> MutableIterable<T>.pickFirst(block: (T) -> Boolean): T? {
 
 inline fun warn(condition: Boolean, block: () -> String) {
     if(!condition) {
-        IllegalStateException(block()).printStackTrace()
+        warn(block)
     }
+}
+
+inline fun warn(block: () -> String) {
+    IllegalStateException(block()).printStackTrace()
 }
 
 inline fun<T: Any> lateObservable(crossinline observer: (prop: KProperty<*>, old: T?, new: T) -> String?)

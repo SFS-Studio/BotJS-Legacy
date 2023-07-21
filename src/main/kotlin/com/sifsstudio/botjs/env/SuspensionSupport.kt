@@ -39,6 +39,8 @@ inline fun BotEnv.suspendableContext(
     SuspensionContext().useWithContext(ctx, block)
 }
 
+suspend inline fun <T> withContext(sc: SuspensionContext, block: () -> T) = sc.withContext(block)
+
 var suspensionContext: SuspensionContext?
     by SuspensionContext.CONTEXT
 
@@ -56,8 +58,6 @@ class SuspensionContext : Closeable {
             ctx.breakpoint = block
             throw ctx.context!!.captureContinuation()
         }
-
-        suspend inline fun <T> withContext(sc: SuspensionContext, block: () -> T) = sc.withContext(block)
     }
 
     var breakpoint: SuspendBlock<Any>? = null

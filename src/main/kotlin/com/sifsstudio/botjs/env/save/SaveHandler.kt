@@ -35,7 +35,7 @@ object SaveHandler {
     private fun save(): Boolean {
         val future = CompletableFuture<Unit>()
         describe(future) {
-            globalSafeSuspend {
+            globalSafepoint {
                 runSafepoint(SafepointEvent.Save)
             }
             BotEnvGlobal.ALL_ENV.values
@@ -48,16 +48,16 @@ object SaveHandler {
     private fun unload(dim: ResourceKey<Level>): Boolean {
         val future = CompletableFuture<Unit>()
         describe(future) {
-            globalSafeSuspend {
+            globalSafepoint {
                 filterNot { it.entity.level.dimension() == dim }
-                runSafepoint(SafepointEvent.Save)
+                runSafepoint(SafepointEvent.Unload)
             }
-            ThreadLoop.Main.execute {
+            ThreadLoop.Main.submit {
                 BotEnvGlobal.ALL_ENV.values
                     .pick {!it.controller.loaded && it.controller.runState.get() == BotEnvState.READY}
                     .map { it.controller.scheduleWrite().asCompletableFuture() }
                     .forEach { it.join() }
-            }
+            }.join()
         }
         return true
     }
@@ -85,11 +85,14 @@ object SaveHandler {
 
     fun onStop(e: ServerStoppingEvent) {
         processSave = false
-        globalSafeSuspend {
-            unloadAll()
+        globalSafepoint {
+            println("AAA")
+            runSafepoint(SafepointEvent.Unload)
         }
+        println("BBB")
         BotEnvGlobal.ALL_ENV.values.forEach {
             while(it.controller.runState.get() != BotEnvState.READY) {
+                println("CCC")
                 Thread.onSpinWait()
             }
         }
@@ -126,9 +129,7 @@ object SaveHandler {
             with(ThreadLoop.Sync) {
                 execute {
                     if (fetchHandle(Marker.SAVE) == null) {
-                        addHandle(schedule(::save).apply {
-                            markers += Marker.SAVE
-                        })
+                        addHandle(schedule(::save).apply { markers += Marker.SAVE })
                     }
                 }
             }

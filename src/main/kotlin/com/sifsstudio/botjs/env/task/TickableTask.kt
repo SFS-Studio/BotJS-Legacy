@@ -1,6 +1,7 @@
 package com.sifsstudio.botjs.env.task
 
 import com.sifsstudio.botjs.env.BotEnv
+import com.sifsstudio.botjs.env.SuspensionContext
 import com.sifsstudio.botjs.env.save.EnvInputStream
 import com.sifsstudio.botjs.env.save.EnvOutputStream
 import net.minecraft.nbt.CompoundTag
@@ -100,10 +101,10 @@ class TaskFuture<T : Any> internal constructor() : java.io.Serializable {
     private fun readObjectNoData() {
     }
 
-    internal suspend fun join(it: Parker) {
+    internal suspend fun join(it: Parker, cx: SuspensionContext) {
         if (isDone) {
             return
         }
-        it.park()
+        it.park(cx)
     }
 }

@@ -32,10 +32,10 @@ class TaskHandler(private val env: BotEnv) {
 
     fun ordinal(future: TaskFuture<*>): Int = tickingTasks.indexOfFirst { it.hasFuture && it.future == future }
 
-    suspend fun resume(): Any? {
+    suspend fun resume(cx: SuspensionContext): Any? {
         val pendingTask = pendingTask ?: return null
         val future = pendingTask.future
-        future.join(parker)
+        future.join(parker, cx)
         return if (!future.isDone) {
             null
         } else future.result
@@ -121,7 +121,7 @@ class TaskHandler(private val env: BotEnv) {
         }
         if (!suspended.get()) {
             cx.switchAware {
-                future.join(parker)
+                future.join(parker, cx)
             }
         }
     }

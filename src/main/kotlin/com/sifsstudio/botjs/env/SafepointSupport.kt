@@ -64,7 +64,7 @@ suspend fun BotEnv.enterSafepoint(cx: SuspensionContext, ret: TaskFuture<*>?) {
             while(globalSafepoint.isNotEmpty()) {
                 for (e in globalSafepoint) {
                     processEvent(cx, ret, e)
-                    globalSafepointScope?.signal()
+                    globalSafepointScope?.signal(cx)
                 }
             }
             for (e in safepointEvents) processEvent(cx, ret, e)
@@ -91,7 +91,9 @@ private suspend fun BotEnv.processEvent(cx: SuspensionContext, ret: TaskFuture<*
             SafepointEvent.Save -> {
                 taskHandler.pause()
                 dumpContinuation(cx, ret)
-                controller.scheduleWrite().join()
+                cx.switchAware {
+                    controller.scheduleWrite().join()
+                }
                 taskHandler.resumeExecution()
             }
 
@@ -112,7 +114,7 @@ private suspend fun BotEnv.processEvent(cx: SuspensionContext, ret: TaskFuture<*
  * and execute the operation once all the envs are paused, resuming
  * after the operation is done
  */
-fun<T> globalSafeSuspend(block: SafepointScope.() -> T): T {
+fun<T> globalSafepoint(block: SafepointScope.() -> T): T {
     val set = BotEnvGlobal.ALL_ENV.values
     return SafepointScope(set.toMutableSet()).use { it.block() }
 }
@@ -120,7 +122,8 @@ fun<T> globalSafeSuspend(block: SafepointScope.() -> T): T {
 class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
 
     init {
-        check(globalSafepointScope == null)
+        while(globalSafepointScope != null) Thread.onSpinWait()
+        check(!ThreadLoop.Main.inLoop)
         globalSafepointScope = this
         control.forEach {
             it.globalSafepoint += SafepointEvent.Suspend
@@ -142,24 +145,29 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
         check(open)
         val count = control.size*2
         for(e in safepoint) {
-            warn(e != SafepointEvent.Suspend)
-                { "Running SUSPEND in runSafepoint is of no effect. When no safepoint is running, the are suspended." }
-            if(e == SafepointEvent.Unload) {
-                unloadAll()
-            }
-            control.forEach {
-                with(it) {
-                    globalSafepoint.clear()
-                    globalSafepoint += e
-                    globalSafepoint += SafepointEvent.Suspend
-                    controller.safepoint!!.resumeSilent()
-                }
+            when(e) {
+                SafepointEvent.Suspend ->
+                    warn {
+                        "Running SUSPEND in runSafepoint is of no effect." +
+                        "When no safepoint is running, the are suspended."
+                    }
+                SafepointEvent.Unload ->
+                    unloadAll()
+                else ->
+                    control.forEach {
+                        with(it) {
+                            globalSafepoint.clear()
+                            globalSafepoint += e
+                            globalSafepoint += SafepointEvent.Suspend
+                            controller.safepoint!!.resumeSilent()
+                        }
+                    }
             }
             while(tCount.get() < count) Thread.onSpinWait()
         }
     }
 
-    fun unloadAll() {
+    private fun unloadAll() {
         check(open)
         control.forEach {
             with(it) {
@@ -185,9 +193,11 @@ class SafepointScope(val control: MutableCollection<BotEnv>): AutoCloseable {
         }
     }
 
-    suspend fun signal() {
+    suspend fun signal(cx: SuspensionContext) {
         tCount.getAndIncrement()
-        while(!go) yield()
+        cx.switchAware {
+            while (!go) yield()
+        }
     }
 
     override fun close() {

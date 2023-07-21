@@ -117,7 +117,7 @@ class BotEnv {
         with(suspension) {
             with(context.environment) {
                 val continuation = continuation!!
-                val ret = retVal ?: taskHandler.resume()
+                val ret = retVal ?: taskHandler.resume(suspension)
                 context.resumeSuspend(continuation, scope, ret)
             }
         }

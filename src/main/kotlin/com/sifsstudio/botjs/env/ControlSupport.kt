@@ -122,7 +122,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
         val job = BOT_SCOPE.launch {
             suspendableContext { cx ->
                 val entity = env.entity
-                BotDataStorage.readData(entity)
+                BotDataStorage.readData(entity, this)
                 deserialize(cx)
             }
         }
@@ -134,7 +134,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
         val job = BOT_SCOPE.launch {
             suspendableContext {
                 serialize()
-                BotDataStorage.writeData(entity, data.serialize())
+                BotDataStorage.writeData(entity, data.serialize(), this)
             }
         }
         writeJob = job

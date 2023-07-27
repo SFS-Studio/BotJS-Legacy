@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.common.ForgeConfigSpec
 import java.lang.IllegalStateException
 import java.util.concurrent.CompletableFuture
+import java.util.stream.Stream
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.math.pow

@@ -32,7 +32,7 @@ class BotEnv {
     lateinit var cacheScope: NativeObject
     private val abilities: MutableMap<String, AbilityBase> = mutableMapOf()
     var entity: BotEntity by lateObservable { _, old, new ->
-        if(BotEnvGlobal.ALL_ENV[new.uuid] != this) {
+        if (BotEnvGlobal.ALL_ENV[new.uuid] != this) {
             "An entity should only has one env"
         } else null
     }
@@ -128,10 +128,11 @@ class BotEnv {
     abstract inner class Controller {
         abstract val resume: Boolean
         abstract var script: String
+
         // R/W across threads
         abstract val runState: AtomicReference<BotEnvState>
         abstract val loaded: Boolean
-        abstract var safepoint: CancellableContinuation<Unit>?
+        abstract var safepoint: AtomicReference<CancellableContinuation<Unit>?>
 
         abstract val runJob: Job?
         abstract val readJob: Job?

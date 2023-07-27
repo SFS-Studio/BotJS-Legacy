@@ -1,7 +1,10 @@
 package com.sifsstudio.botjs.env.save
 
 import com.sifsstudio.botjs.BotJS
-import com.sifsstudio.botjs.env.*
+import com.sifsstudio.botjs.env.BotEnvGlobal
+import com.sifsstudio.botjs.env.BotEnvState
+import com.sifsstudio.botjs.env.SafepointEvent
+import com.sifsstudio.botjs.env.globalSafepoint
 import com.sifsstudio.botjs.util.ThreadLoop
 import com.sifsstudio.botjs.util.describe
 import com.sifsstudio.botjs.util.pick
@@ -49,12 +52,12 @@ object SaveHandler {
         val future = CompletableFuture<Unit>()
         describe(future) {
             globalSafepoint {
-                filterNot { it.entity.level.dimension() == dim }
+                filterNot { it.entity.level.dimension() != dim }
                 runSafepoint(SafepointEvent.Unload)
             }
             ThreadLoop.Main.submit {
                 BotEnvGlobal.ALL_ENV.values
-                    .pick {!it.controller.loaded && it.controller.runState.get() == BotEnvState.READY}
+                    .pick { !it.controller.loaded && it.controller.runState.get() == BotEnvState.READY }
                     .map { it.controller.scheduleWrite().asCompletableFuture() }
                     .forEach { it.join() }
             }.join()
@@ -64,12 +67,12 @@ object SaveHandler {
 
     private fun fetchHandle(m: Marker): ThreadLoop.DisposableHandle? {
         val res = waitingHandle.find { it.markers.contains(m) }
-        if(res != null && !res.done) {
+        if (res != null && !res.done) {
             return res
         }
         val now = savingHandle
-        if(now != null && !now.done) {
-            if(m in now.markers) {
+        if (now != null && !now.done) {
+            if (m in now.markers) {
                 return now
             }
         }
@@ -78,7 +81,7 @@ object SaveHandler {
 
     private fun addHandle(it: ThreadLoop.DisposableHandle) {
         val handle = savingHandle
-        if(handle != null && !handle.done) {
+        if (handle != null && !handle.done) {
             waitingHandle += it
         } else savingHandle = it
     }
@@ -91,7 +94,7 @@ object SaveHandler {
         }
         println("BBB")
         BotEnvGlobal.ALL_ENV.values.forEach {
-            while(it.controller.runState.get() != BotEnvState.READY) {
+            while (it.controller.runState.get() != BotEnvState.READY) {
                 println("CCC")
                 Thread.onSpinWait()
             }
@@ -108,7 +111,7 @@ object SaveHandler {
     }
 
     fun onSave(e: LevelEvent.Save) {
-        if(processSave) {
+        if (processSave) {
             with(ThreadLoop.Sync) {
                 execute {
                     val unloadRef = { unload((e.level as ServerLevel).dimension()) }
@@ -121,10 +124,10 @@ object SaveHandler {
     }
 
     fun onTick(e: TickEvent) {
-        if(e.side != LogicalSide.SERVER&& e.type != TickEvent.Type.SERVER) {
+        if (e.side != LogicalSide.SERVER && e.type != TickEvent.Type.SERVER) {
             return
         }
-        if(tick++ > BotJS.CONFIG.saveDurationTicks) {
+        if (tick++ > BotJS.CONFIG.saveDurationTicks) {
             tick = 1
             with(ThreadLoop.Sync) {
                 execute {

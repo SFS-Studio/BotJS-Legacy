@@ -13,7 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 
-fun BotEnv.createController() = object: BotEnv.Controller() {
+fun BotEnv.createController() = object : BotEnv.Controller() {
     override var script = ""
 
     //R/W across threads
@@ -22,7 +22,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
 
     var reloadHandle: ThreadLoop.DisposableHandle? = null
 
-    override var safepoint: CancellableContinuation<Unit>? = null
+    override var safepoint: AtomicReference<CancellableContinuation<Unit>?> = AtomicReference(null)
 
     override var runJob: Job? = null
     override var readJob: Job? = null
@@ -58,7 +58,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
             runJob = BOT_SCOPE.launch {
                 suspendableContext { cx ->
                     val complete = run(this, cx)
-                    if(!complete) {
+                    if (!complete) {
                         val state = runState.get()
                         check(state == UNLOADING) { "Bot execution stopped in an unexpected state: $state, should be $UNLOADING" }
                     }
@@ -69,7 +69,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
     }
 
     private fun checkRelaunch() {
-        if(data != BotDataContainer.EMPTY) {
+        if (data != BotDataContainer.EMPTY) {
             launch()
         }
     }
@@ -77,11 +77,11 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
     override fun add() {
         loaded = true
         var read = readJob
-        if(read == null) {
+        if (read == null) {
             read = scheduleRead()
             readJob = read
         }
-        if(read.isActive) {
+        if (read.isActive) {
             check(runJob == null)
             read.invokeOnCompletion { ThreadLoop.Main.execute(::checkRelaunch) }
         } else {
@@ -89,7 +89,7 @@ fun BotEnv.createController() = object: BotEnv.Controller() {
             if (run != null && run.isActive) {
                 safepointEvents -= SafepointEvent.Unload
                 val handle = run.invokeOnCompletion {
-                    if(it == null) {
+                    if (it == null) {
                         ThreadLoop.Main.execute(::checkRelaunch)
                     }
                 }

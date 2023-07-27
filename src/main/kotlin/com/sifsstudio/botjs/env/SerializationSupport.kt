@@ -51,8 +51,8 @@ fun BotEnv.deserialize(cx: Context) {
     if(serializedFrame.isNotEmpty()) {
         readSerializedFrame(serializedFrame, cx)
         taskHandler.deserialize(data.tasks)
-        controller.run {
-            runState.set(BotEnvState.SAFEPOINT)
-        }
+    } else {
+        cacheScope = NativeObject()
+        scope = cx.initStandardObjects()
     }
 }
